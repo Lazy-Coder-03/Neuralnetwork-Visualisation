@@ -53,6 +53,7 @@ const activation_derivatives = {
 // === NeuralNetwork Class ===
 class NeuralNetwork {
     constructor(in_nodes, hidden_layers, out_nodes, options = {}) {
+        // Handle copy constructor case
         if (in_nodes instanceof NeuralNetwork) {
             let a = in_nodes;
             this.input_nodes = a.input_nodes;
@@ -63,6 +64,7 @@ class NeuralNetwork {
             this.setLearningRate(a.learning_rate);
             this.setActivationFunctions(a.activation_functions.map(func => func.name));
             this.taskType = a.taskType;
+            this.debug = a.debug;
             return;
         }
 
@@ -77,6 +79,7 @@ class NeuralNetwork {
         this.hidden_layers = Array.isArray(hidden_layers) ? hidden_layers : [hidden_layers];
         this.output_nodes = out_nodes;
         this.taskType = options.taskType || 'regression';
+        this.debug = options.debug || false;
 
         this.weights = [];
         this.biases = [];
@@ -102,6 +105,19 @@ class NeuralNetwork {
         this.setActivationFunctions(options.activationFunctions);
 
         this.lastInputs = [];
+
+        if (this.debug) {
+            console.log("--- Neural Network Debug Info ---");
+            console.log("Input Nodes:", this.input_nodes);
+            console.log("Hidden Layers:", this.hidden_layers);
+            console.log("Output Nodes:", this.output_nodes);
+            console.log("Learning Rate:", this.learning_rate);
+            console.log("Task Type:", this.taskType);
+            console.log("Activation Functions:", this.activation_functions.map(f => f.name));
+            console.log("Number of Weights Matrices:", this.weights.length);
+            console.log("Number of Bias Vectors:", this.biases.length);
+            console.log("---------------------------------");
+        }
     }
 
     setLearningRate(learning_rate = 0.01) {
@@ -122,7 +138,7 @@ class NeuralNetwork {
         } else {
             if (Array.isArray(funcNames) && funcNames.length !== expectedLength) {
                 console.warn(
-                    `Warning: Expected ${expectedLength} activation functions, got ${funcNames.length}. Defaulting.`
+                    `Warning: Expected ${expectedLength} activation functions, got ${funcNames ? funcNames.length : 0}. Defaulting.`
                 );
             }
 
@@ -148,9 +164,19 @@ class NeuralNetwork {
         activations_list.push(current);
 
         for (let i = 0; i < this.weights.length; i++) {
-            current = Matrix.multiply(this.weights[i], current);
-            current.add(this.biases[i]);
-            current = current.map(this.activation_functions[i]);
+            let z = Matrix.multiply(this.weights[i], current);
+            z.add(this.biases[i]);
+
+            // Special case for softmax, which operates on an array of numbers
+            if (this.activation_functions[i].name === 'softmax') {
+                let outputArray = z.toArray();
+                let softmaxOutput = this.activation_functions[i](outputArray);
+                current = Matrix.fromArray(softmaxOutput);
+            } else {
+                // General case for all other activation functions
+                current = z.map(this.activation_functions[i]);
+            }
+
             activations_list.push(current);
         }
         return activations_list;
@@ -162,12 +188,22 @@ class NeuralNetwork {
         let current = Matrix.fromArray(input_array);
 
         for (let i = 0; i < this.weights.length; i++) {
-            current = Matrix.multiply(this.weights[i], current);
-            current.add(this.biases[i]);
-            current = current.map(this.activation_functions[i]);
+            let z = Matrix.multiply(this.weights[i], current);
+            z.add(this.biases[i]);
+
+            // Special case for softmax
+            if (this.activation_functions[i].name === 'softmax') {
+                let outputArray = z.toArray();
+                let softmaxOutput = this.activation_functions[i](outputArray);
+                current = Matrix.fromArray(softmaxOutput);
+            } else {
+                // General case for all other activation functions
+                current = z.map(this.activation_functions[i]);
+            }
         }
         return current.toArray();
     }
+
 
     train(input_array, target_array) {
         if (!Array.isArray(input_array) || !Array.isArray(target_array)) {
@@ -189,8 +225,14 @@ class NeuralNetwork {
             z.add(this.biases[i]);
             zs.push(z);
 
-            current = z.copy();
-            current.map(this.activation_functions[i]);
+            if (this.activation_functions[i].name === 'softmax') {
+                let outputArray = z.toArray();
+                let softmaxOutput = this.activation_functions[i](outputArray);
+                current = Matrix.fromArray(softmaxOutput);
+            } else {
+                current = z.copy();
+                current.map(this.activation_functions[i]);
+            }
             activations_list.push(current);
         }
 
@@ -212,6 +254,12 @@ class NeuralNetwork {
 
             this.weights[l].add(delta_weights);
             this.biases[l].add(gradient);
+            if (abs(this.weights[l]) < this.learning_rate) {
+                this.weights[l] = 0;
+            }
+            if (abs(this.biases[l]) < this.learning_rate) {
+                this.biases[l] = 0;
+            }
 
             if (l !== 0) {
                 let weights_T = Matrix.transpose(this.weights[l]);
@@ -244,6 +292,59 @@ class NeuralNetwork {
 
         this.weights.forEach(w => w.map(mutateFunc));
         this.biases.forEach(b => b.map(mutateFunc));
+    }
+
+    /**
+     * Creates a new NeuralNetwork instance by performing a uniform crossover operation
+     * on two parent networks.
+     * @param {NeuralNetwork} parentA - The first parent network.
+     * @param {NeuralNetwork} parentB - The second parent network.
+     * @returns {NeuralNetwork} The new child network.
+     */
+    static crossover(parentA, parentB) {
+        // Ensure both parents have the same structure
+        if (parentA.input_nodes !== parentB.input_nodes ||
+            parentA.output_nodes !== parentB.output_nodes ||
+            parentA.hidden_layers.length !== parentB.hidden_layers.length) {
+            console.error("Crossover error: Parent networks have different structures.");
+            return null;
+        }
+
+        let child = new NeuralNetwork(parentA.input_nodes, parentA.hidden_layers, parentA.output_nodes);
+
+        // Loop through all weight matrices and perform uniform crossover
+        for (let i = 0; i < parentA.weights.length; i++) {
+            child.weights[i].map((val, row, col) => {
+                // Randomly choose a weight from either parent
+                if (Math.random() < 0.5) {
+                    return parentA.weights[i].data[row][col];
+                } else {
+                    return parentB.weights[i].data[row][col];
+                }
+            });
+
+            // Perform uniform crossover for biases
+            child.biases[i].map((val, row, col) => {
+                if (Math.random() < 0.5) {
+                    return parentA.biases[i].data[row][col];
+                } else {
+                    return parentB.biases[i].data[row][col];
+                }
+            });
+        }
+
+        // Inherit other properties from a random parent
+        if (Math.random() < 0.5) {
+            child.setLearningRate(parentA.learning_rate);
+            child.setActivationFunctions(parentA.activation_functions.map(f => f.name));
+            child.taskType = parentA.taskType;
+        } else {
+            child.setLearningRate(parentB.learning_rate);
+            child.setActivationFunctions(parentB.activation_functions.map(f => f.name));
+            child.taskType = parentB.taskType;
+        }
+
+        return child;
     }
 
     serialize() {
