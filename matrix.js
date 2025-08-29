@@ -1,23 +1,33 @@
+// matrix.js - Robust Matrix Implementation
+
 function normaliseMatrix(a) {
-    let result = new Matrix(a.rows, a.cols);
+    if (!(a instanceof Matrix)) {
+        throw new TypeError("normaliseMatrix expects a Matrix instance.");
+    }
+
+    let result = a.copy();
     let sum = 0;
+
     for (let i = 0; i < a.rows; i++) {
         for (let j = 0; j < a.cols; j++) {
-            result.data[i][j] = a.data[i][j];
             sum += Math.abs(result.data[i][j]);
         }
     }
-    for (let i = 0; i < a.rows; i++) {
-        for (let j = 0; j < a.cols; j++) {
-            result.data[i][j] /= sum;
-        }
+
+    if (sum === 0) {
+        console.warn("Warning: Normalisation skipped, matrix sum is 0.");
+        return result; // return unchanged
     }
-    return result;
+
+    return result.map(v => v / sum);
 }
 
 
 class Matrix {
     constructor(rows, cols) {
+        if (!Number.isInteger(rows) || !Number.isInteger(cols) || rows <= 0 || cols <= 0) {
+            throw new Error("Matrix constructor requires positive integer dimensions.");
+        }
         this.rows = rows;
         this.cols = cols;
         this.data = Array.from({ length: rows }, () => Array(cols).fill(0));
@@ -34,17 +44,12 @@ class Matrix {
     }
 
     static fromArray(arr) {
-        return new Matrix(arr.length, 1).map((e, i) => arr[i]);
+        if (!Array.isArray(arr)) throw new TypeError("fromArray expects an array.");
+        return new Matrix(arr.length, 1).map((_, i) => arr[i]);
     }
 
     toArray() {
-        let arr = [];
-        for (let i = 0; i < this.rows; i++) {
-            for (let j = 0; j < this.cols; j++) {
-                arr.push(this.data[i][j]);
-            }
-        }
-        return arr;
+        return this.data.flat();
     }
 
     randomize() {
@@ -55,31 +60,35 @@ class Matrix {
     add(n) {
         if (n instanceof Matrix) {
             if (this.rows !== n.rows || this.cols !== n.cols) {
-                console.error('Matrix add error: size mismatch');
-                return;
+                throw new Error(`Matrix add error: size mismatch ${this.rows}x${this.cols} vs ${n.rows}x${n.cols}`);
             }
             return this.map((e, i, j) => e + n.data[i][j]);
-        } else {
+        } else if (typeof n === "number") {
             return this.map(e => e + n);
+        } else {
+            throw new TypeError("Matrix.add expects a Matrix or number.");
         }
     }
 
     multiply(n) {
         if (n instanceof Matrix) {
             if (this.rows !== n.rows || this.cols !== n.cols) {
-                console.error('Matrix multiply error: size mismatch');
-                return;
+                throw new Error(`Matrix multiply error: size mismatch ${this.rows}x${this.cols} vs ${n.rows}x${n.cols}`);
             }
             return this.map((e, i, j) => e * n.data[i][j]);
-        } else {
+        } else if (typeof n === "number") {
             return this.map(e => e * n);
+        } else {
+            throw new TypeError("Matrix.multiply expects a Matrix or number.");
         }
     }
 
     static multiply(a, b) {
+        if (!(a instanceof Matrix) || !(b instanceof Matrix)) {
+            throw new TypeError("Matrix.multiply expects two Matrices.");
+        }
         if (a.cols !== b.rows) {
-            console.error('Matrix multiply error: a.cols must match b.rows');
-            return undefined;
+            throw new Error(`Matrix multiply error: a.cols (${a.cols}) must match b.rows (${b.rows})`);
         }
 
         let result = new Matrix(a.rows, b.cols);
@@ -96,19 +105,25 @@ class Matrix {
     }
 
     static subtract(a, b) {
+        if (!(a instanceof Matrix) || !(b instanceof Matrix)) {
+            throw new TypeError("Matrix.subtract expects two Matrices.");
+        }
         if (a.rows !== b.rows || a.cols !== b.cols) {
-            console.error('Matrix subtract error: size mismatch');
-            return;
+            throw new Error(`Matrix subtract error: size mismatch ${a.rows}x${a.cols} vs ${b.rows}x${b.cols}`);
         }
         return new Matrix(a.rows, a.cols).map((_, i, j) => a.data[i][j] - b.data[i][j]);
     }
 
     static transpose(matrix) {
+        if (!(matrix instanceof Matrix)) {
+            throw new TypeError("Matrix.transpose expects a Matrix.");
+        }
         return new Matrix(matrix.cols, matrix.rows)
             .map((_, i, j) => matrix.data[j][i]);
     }
 
     map(func) {
+        if (typeof func !== "function") throw new TypeError("Matrix.map expects a function.");
         for (let i = 0; i < this.rows; i++) {
             for (let j = 0; j < this.cols; j++) {
                 let val = this.data[i][j];
@@ -119,6 +134,7 @@ class Matrix {
     }
 
     static map(matrix, func) {
+        if (!(matrix instanceof Matrix)) throw new TypeError("Matrix.map expects a Matrix.");
         return new Matrix(matrix.rows, matrix.cols)
             .map((_, i, j) => func(matrix.data[i][j], i, j));
     }
@@ -133,8 +149,9 @@ class Matrix {
     }
 
     static deserialize(data) {
-        if (typeof data === 'string') {
-            data = JSON.parse(data);
+        if (typeof data === 'string') data = JSON.parse(data);
+        if (!("rows" in data && "cols" in data && "data" in data)) {
+            throw new Error("Matrix.deserialize: Invalid data format.");
         }
         let m = new Matrix(data.rows, data.cols);
         m.data = data.data;

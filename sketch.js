@@ -3,7 +3,7 @@ WIDTH = 800;
 HEIGHT = 600;
 
 let nn, nnv;
-const TRAINING_EPOCHS = 100; // Number of training iterations per frame
+const TRAINING_EPOCHS = 1; // Number of training iterations per frame
 let currentInputIndex = 0;
 
 // 2. Define the training data for the XOR problem
@@ -14,15 +14,15 @@ const trainingData = [
   },
   {
     inputs: [0, 1],
-    targets: [1]
+    targets: [0]
   },
   {
     inputs: [1, 0],
-    targets: [1]
+    targets: [0]
   },
   {
     inputs: [1, 1],
-    targets: [0]
+    targets: [1]
   }
 ];
 
@@ -35,10 +35,10 @@ let h = HEIGHT - 20; // Corrected height to account for padding on both sides
 function setup() {
   createCanvas(WIDTH, HEIGHT);
   // Assume NeuralNetwork class is loaded
-  nn = new NeuralNetwork(2, [5, 3], 1, { activationFunctions: ['tanh', 'tanh', 'sigmoid'] });
+  nn = new NeuralNetwork(2, [4 ,3], 1, { activationFunctions: ['tanh', 'tanh', 'sigmoid'] });
   // Corrected: Removed the 'r' argument, as it's now calculated dynamically.
   nnv = new NNvisual(x, y, w, h, nn);
-  frameRate(60); // Slow down the frame rate for better visualization of training
+  //frameRate(30); // Slow down the frame rate for better visualization of training
 }
 
 function draw() {
