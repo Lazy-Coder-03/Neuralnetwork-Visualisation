@@ -377,8 +377,14 @@ class NNvisual {
         if (type === 'node') {
             nodePos = this.nodePositions[layer][index];
             activationValue = (this.activations[layer] && this.activations[layer].data) ? this.activations[layer].data[index][0] : 0;
-            // Correctly map the activation function for the final output layer
-            activationFunctionName = (layer === this.nn.weights.length) ? this.nn.activation_functions[layer - 1].name : this.nn.activation_functions[layer].name;
+            
+            // Correctly map the activation function for any layer
+            if (layer > 0) {
+                 activationFunctionName = this.nn.activation_functions[layer - 1] ? this.nn.activation_functions[layer - 1].name : 'N/A';
+            } else {
+                 activationFunctionName = 'N/A (Input)';
+            }
+            
             layerLabel = layer === 0 ? 'Input' : layer === this.nodePositions.length - 1 ? 'Output' : 'Hidden ' + layer;
             
             if (layer > 0) {
@@ -429,10 +435,10 @@ class NNvisual {
         // Calculate dynamic box width based on content
         let boxWidth = 0;
         for (let line of textLines) {
-             let currentWidth = textWidth(line);
-             if (currentWidth > boxWidth) {
-                 boxWidth = currentWidth;
-             }
+            let currentWidth = textWidth(line);
+            if (currentWidth > boxWidth) {
+                boxWidth = currentWidth;
+            }
         }
         boxWidth += textPadding * 2; // Add padding to the final width
         let boxHeight = (textLines.length * 20) + textPadding * 2;
