@@ -1,5 +1,5 @@
 {
-  "encoder3bit": {
+  "Encoder 3bit": {
     "network": {
       "inputNodes": 8,
       "hiddenLayers": [8, 8],
@@ -20,7 +20,7 @@
       { "inputs": [0, 0, 0, 0, 0, 0, 0, 1], "targets": [1, 1, 1] }
     ]
   },
-  "decoder3bit": {
+  "Decoder 3bit": {
     "network": {
       "inputNodes": 3,
       "hiddenLayers": [8, 8],
@@ -41,7 +41,7 @@
       { "inputs": [1, 1, 1], "targets": [0, 0, 0, 0, 0, 0, 0, 1] }
     ]
   },
-  "andGate": {
+  "And Gate": {
     "network": {
       "inputNodes": 2,
       "hiddenLayers": [4],
@@ -58,7 +58,7 @@
       { "inputs": [1, 1], "targets": [1] }
     ]
   },
-  "xorGate": {
+  "Xor Gate": {
     "network": {
       "inputNodes": 2,
       "hiddenLayers": [5,4],
@@ -75,46 +75,42 @@
       { "inputs": [1, 1], "targets": [0] }
     ]
   },
-  "2bitAdder": {
+  "2bit Adder + carry bit": {
     "network": {
       "inputNodes": 3,
       "hiddenLayers": [4, 2],
-      "outputNodes": 1,
+      "outputNodes": 2,
       "options": {
         "activationFunctions": ["tanh", "tanh", "sigmoid"],
         "debug": true
       }
     },
     "data": [
-      { "inputs": [0, 0, 0], "targets": [0] },
-      { "inputs": [0, 0, 1], "targets": [1] },
-      { "inputs": [0, 1, 0], "targets": [1] },
-      { "inputs": [0, 1, 1], "targets": [0] },
-      { "inputs": [1, 0, 0], "targets": [1] },
-      { "inputs": [1, 0, 1], "targets": [0] },
-      { "inputs": [1, 1, 0], "targets": [0] },
-      { "inputs": [1, 1, 1], "targets": [1] }
+      { "inputs": [0, 0, 0], "targets": [0,0] },
+      { "inputs": [0, 0, 1], "targets": [0,1] },
+      { "inputs": [0, 1, 0], "targets": [0,1] },
+      { "inputs": [0, 1, 1], "targets": [1,0] },
+      { "inputs": [1, 0, 0], "targets": [0,1] },
+      { "inputs": [1, 0, 1], "targets": [1,0] },
+      { "inputs": [1, 1, 0], "targets": [1,0] },
+      { "inputs": [1, 1, 1], "targets": [1,1] }
     ]
   },
-  "2bitSubtractor": {
+  "2 bit Subtractor": {
     "network": {
-      "inputNodes": 3,
+      "inputNodes": 2,
       "hiddenLayers": [4, 2],
-      "outputNodes": 1,
+      "outputNodes": 2,
       "options": {
         "activationFunctions": ["tanh", "tanh", "sigmoid"],
         "debug": true
       }
     },
     "data": [
-      { "inputs": [0, 0, 0], "targets": [0] },
-      { "inputs": [0, 0, 1], "targets": [1] },
-      { "inputs": [0, 1, 0], "targets": [1] },
-      { "inputs": [0, 1, 1], "targets": [0] },
-      { "inputs": [1, 0, 0], "targets": [1] },
-      { "inputs": [1, 0, 1], "targets": [0] },
-      { "inputs": [1, 1, 0], "targets": [0] },
-      { "inputs": [1, 1, 1], "targets": [1] }
+      { "inputs": [0, 0], "targets": [0,0] },
+      { "inputs": [0, 1], "targets": [1,1] },
+      { "inputs": [1, 0], "targets": [0,0] },
+      { "inputs": [1, 1], "targets": [0,0] }
     ]
   }
 }

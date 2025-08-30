@@ -4,12 +4,13 @@ let nn, nnv;
 const ERROR_THRESHOLD = 0.001;
 let currentInputIndex = 0;
 let datasets;
-let currentDatasetName = 'encoder3bit';
+let currentDatasetName = 'Encoder 3bit'; // Updated to match the new key name
 let isTraining = false;
 let epochsPerFrame = 100;
 
-let inputValElem, predictedOutputValElem, targetOutputValElem, selectedNodeInfoElem;
-let datasetSelect, trainBtn, epochsSlider, epochsVal, hiddenLayersInput, updateArchBtn;
+let inputValElem, predictedOutputValElem, targetOutputValElem, selectedNodeInfoElem, trainingMessageElem;
+let datasetSelect, trainBtn, epochsSlider, epochsVal, hiddenLayersContainer, addLayerBtn, updateArchBtn;
+let testDataSelect;
 
 function preload() {
   datasets = loadJSON('trainingData.json');
@@ -18,8 +19,6 @@ function preload() {
 function setup() {
   createCanvas(WIDTH, HEIGHT).parent('p5-canvas-container');
   frameRate(60);
-
-  setupNetwork(currentDatasetName);
 
   // Get DOM elements
   inputValElem = document.getElementById('input-val');
@@ -30,8 +29,11 @@ function setup() {
   trainBtn = document.getElementById('play-pause-btn');
   epochsSlider = document.getElementById('epochs-slider');
   epochsVal = document.getElementById('epochs-val');
-  hiddenLayersInput = document.getElementById('hidden-layers-input');
+  hiddenLayersContainer = document.getElementById('hidden-layers-container');
+  addLayerBtn = document.getElementById('add-layer-btn');
   updateArchBtn = document.getElementById('update-arch-btn');
+  trainingMessageElem = document.getElementById('training-message-container');
+  testDataSelect = document.getElementById('test-data-select');
 
   trainBtn.textContent = 'Train Network';
 
@@ -42,7 +44,24 @@ function setup() {
     epochsPerFrame = parseInt(epochsSlider.value);
     epochsVal.textContent = epochsPerFrame;
   });
+  addLayerBtn.addEventListener('click', addHiddenLayerInput);
   updateArchBtn.addEventListener('click', updateArchitecture);
+  testDataSelect.addEventListener('change', (event) => {
+    currentInputIndex = event.target.value;
+    updateNodeInfoPanel({ type: 'none' });
+  });
+
+  // Populate the dataset dropdown with keys from the JSON
+  populateDatasetSelect();
+
+  // Set the initial dropdown value to match the new default name
+  datasetSelect.value = currentDatasetName;
+
+  // Initialize with default layers
+  const defaultLayers = datasets[currentDatasetName].network.hiddenLayers;
+  defaultLayers.forEach(numNodes => addHiddenLayerInput(numNodes));
+  setupNetwork(currentDatasetName);
+  populateTestDataSelect();
 }
 
 function draw() {
@@ -74,18 +93,36 @@ function draw() {
   updateDataPanel(data.inputs, outputs, data.targets);
 }
 
+// Function to dynamically populate the dataset dropdown
+function populateDatasetSelect() {
+  for (const key in datasets) {
+    if (datasets.hasOwnProperty(key)) {
+      const option = document.createElement('option');
+      option.value = key; // Use the key as the value
+      option.textContent = key; // Use the key as the display name
+      datasetSelect.appendChild(option);
+    }
+  }
+}
+
 function stopTraining(message) {
   isTraining = false;
   trainBtn.textContent = 'Train Network';
   trainBtn.classList.remove('bg-red-600', 'hover:bg-red-700');
   trainBtn.classList.add('bg-blue-600', 'hover:bg-blue-700');
   datasetSelect.disabled = false;
-  updateArchBtn.disabled = false; // Enable the button
-  displayMessage(message);
+  updateArchBtn.disabled = false;
+  addLayerBtn.disabled = false;
+  document.querySelectorAll('.remove-layer-btn').forEach(btn => btn.disabled = false);
+  testDataSelect.disabled = false;
+  displayTrainingMessage(message);
 }
 
-function displayMessage(message) {
-  selectedNodeInfoElem.innerHTML = `<div class="bg-red-500 text-white p-2 rounded-md">${message}</div>`;
+function displayTrainingMessage(message) {
+  trainingMessageElem.innerHTML = `<div class="bg-red-500 text-white p-2 rounded-md my-4">${message}</div>`;
+  setTimeout(() => {
+    trainingMessageElem.innerHTML = '';
+  }, 5000);
 }
 
 function setupNetwork(datasetName) {
@@ -97,13 +134,32 @@ function setupNetwork(datasetName) {
 function handleDatasetChange(event) {
   if (!isTraining) {
     currentDatasetName = event.target.value;
+    while (hiddenLayersContainer.firstChild) {
+      hiddenLayersContainer.removeChild(hiddenLayersContainer.firstChild);
+    }
+    const defaultLayers = datasets[currentDatasetName].network.hiddenLayers;
+    defaultLayers.forEach(numNodes => addHiddenLayerInput(numNodes));
     setupNetwork(currentDatasetName);
     currentInputIndex = 0;
+    populateTestDataSelect();
     updateNodeInfoPanel({ type: 'none' });
   } else {
     datasetSelect.value = currentDatasetName;
-    displayMessage('Please pause training before changing the dataset.');
+    displayTrainingMessage('Please pause training before changing the dataset.');
   }
+}
+
+function populateTestDataSelect() {
+  while (testDataSelect.firstChild) {
+    testDataSelect.removeChild(testDataSelect.firstChild);
+  }
+  const currentData = datasets[currentDatasetName].data;
+  currentData.forEach((data, index) => {
+    const option = document.createElement('option');
+    option.value = index;
+    option.textContent = `Test Case ${index + 1}: [${data.inputs}]`;
+    testDataSelect.appendChild(option);
+  });
 }
 
 function toggleTraining() {
@@ -113,69 +169,78 @@ function toggleTraining() {
     trainBtn.classList.remove('bg-blue-600', 'hover:bg-blue-700');
     trainBtn.classList.add('bg-red-600', 'hover:bg-red-700');
     datasetSelect.disabled = true;
-    updateArchBtn.disabled = true; // Disable the button
+    updateArchBtn.disabled = true;
+    addLayerBtn.disabled = true;
+    document.querySelectorAll('.remove-layer-btn').forEach(btn => btn.disabled = true);
+    testDataSelect.disabled = true;
   } else {
     stopTraining('Training paused.');
   }
 }
 
+function addHiddenLayerInput(defaultValue = 8) {
+  const layerCount = hiddenLayersContainer.children.length + 1;
+  const div = document.createElement('div');
+  div.classList.add('layer-input-group');
+  div.innerHTML = `
+        <label class="text-gray-400 text-sm">Layer ${layerCount}:</label>
+        <input type="number" value="${defaultValue}" min="1" max="20" class="rounded px-2 py-1 bg-gray-700 text-gray-200 w-20">
+        <button class="remove-layer-btn bg-red-500 hover:bg-red-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm leading-none transition-colors duration-200">
+            &times;
+        </button>
+    `;
+  hiddenLayersContainer.appendChild(div);
+
+  div.querySelector('.remove-layer-btn').addEventListener('click', () => {
+    if (!isTraining) {
+      div.remove();
+      updateLayerLabels();
+    } else {
+      displayTrainingMessage('Cannot remove a layer while training.');
+    }
+  });
+}
+
+function updateLayerLabels() {
+  const inputs = hiddenLayersContainer.querySelectorAll('label');
+  inputs.forEach((label, index) => {
+    label.textContent = `Layer ${index + 1}:`;
+  });
+}
+
 function updateArchitecture() {
   if (isTraining) {
-    displayMessage('Cannot update network while training is in progress.');
+    displayTrainingMessage('Cannot update network while training is in progress.');
     return;
   }
 
-  const inputString = hiddenLayersInput.value;
-  const hiddenNodes = inputString.split(',').map(num => {
-    let parsed = parseInt(num.trim());
-    if (isNaN(parsed) || parsed < 1) {
-      displayMessage('Invalid input. Please enter a comma-separated list of positive numbers.');
-      return -1; // Flag for invalid input
-    }
-    // Auto-adjust if the number of nodes is more than 20
-    if (parsed > 20) {
-      parsed = 20;
-      displayMessage('Node count was auto-adjusted to 20 for one or more layers.');
-    }
-    return parsed;
-  });
+  const newHiddenLayers = [];
+  const layerInputs = hiddenLayersContainer.querySelectorAll('input[type="number"]');
 
-  // Check for any invalid inputs
-  if (hiddenNodes.includes(-1)) {
-    return; // Stop if there was invalid input
+  if (layerInputs.length === 0) {
+    displayTrainingMessage('You must have at least one hidden layer.');
+    return;
   }
 
-  // Get the current dataset to re-setup the network
+  for (const input of layerInputs) {
+    let parsed = parseInt(input.value);
+    if (isNaN(parsed) || parsed < 1 || parsed > 20) {
+      parsed = constrain(parsed, 1, 20);
+      input.value = parsed;
+      displayTrainingMessage('Node count was auto-adjusted to be between 1 and 20.');
+    }
+    newHiddenLayers.push(parsed);
+  }
+
   const currentDataset = datasets[currentDatasetName];
-  if (!currentDataset) {
-    displayMessage('Selected dataset not found.');
-    return;
-  }
-
   const inputCount = currentDataset.network.inputNodes;
   const outputCount = currentDataset.network.outputNodes;
   const options = currentDataset.network.options;
 
-  // Update the network configuration
-  nn = new NeuralNetwork(inputCount, hiddenNodes, outputCount, options);
+  nn = new NeuralNetwork(inputCount, newHiddenLayers, outputCount, options);
   nnv = new NNvisual(WIDTH / 2, HEIGHT / 2, 750, 550, nn, { drawmode: 'center' });
 
-  displayMessage('Network architecture updated successfully!');
-}
-
-function keyPressed() {
-  if (key === ' ' && !isTraining) {
-    currentInputIndex = (currentInputIndex + 1) % datasets[currentDatasetName].data.length;
-    // Update selected node info if a node is currently selected
-    if (nnv.selectedNode) {
-      const data = datasets[currentDatasetName].data[currentInputIndex];
-      nn.feedForwardAllLayers(data.inputs);
-      const nodeInfo = nnv.getInfoBoxText(nnv.selectedNode.layer, nnv.selectedNode.index, nnv.selectedNode.type);
-      updateNodeInfoPanel(nodeInfo);
-    } else {
-      updateNodeInfoPanel({ type: 'none' });
-    }
-  }
+  displayTrainingMessage('Network architecture updated successfully!');
 }
 
 function mousePressed() {
@@ -192,6 +257,10 @@ function updateDataPanel(inputs, outputs, targets) {
 }
 
 function updateNodeInfoPanel(nodeInfo) {
+  if (trainingMessageElem) {
+    trainingMessageElem.innerHTML = '';
+  }
+
   if (nodeInfo.type === 'none') {
     selectedNodeInfoElem.innerHTML = `<p class="text-sm">Click a node to view its details.</p>`;
   } else if (nodeInfo.type === 'node') {

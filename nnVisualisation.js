@@ -183,7 +183,7 @@ class NNvisual {
 
     drawSelectedPathConnections() {
         const numLayers = this.nodePositions.length;
-        const WEIGHT_THRESHOLD = 0.9;
+        const WEIGHT_THRESHOLD = 0.8;
         let nodesInPath = new Set();
         let inputs_ = this.nn.lastInputs;
 
