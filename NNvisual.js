@@ -55,6 +55,15 @@ class NNvisual {
         this.NODE_HEIGHT = this.r * 1.5;
         this.NODE_GAP = this.r * 1.5;
     }
+    resize(newW, newH) {
+        this.w = newW;
+        this.h = newH;
+        this.x = newW / 2 - this.w / 2;
+        this.y = newH / 2 - this.h / 2;
+        this.initializeSizing();
+        this.nodePositions = this.calculateLayerPositions();
+        this.biasNodePositions = this.calculateBiasPositions();
+    }
 
     /**
      * Calculates the position of each node.

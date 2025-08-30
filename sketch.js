@@ -1,4 +1,5 @@
-let WIDTH, HEIGHT;
+let WIDTH = 600;
+let HEIGHT = 400;
 let nn, nnv;
 const ERROR_THRESHOLD = 0.001;
 let currentInputIndex = 0;
@@ -19,19 +20,12 @@ function preload() {
 }
 
 function setup() {
-  // Responsive canvas sizing 
-  const container = document.getElementById('p5-canvas-container');
-  const containerWidth = container.clientWidth;
-  const containerHeight = container.clientHeight;
-
-  WIDTH = containerWidth;
-  HEIGHT = containerHeight;
-
+  // Canvas dimensions are now fixed at 800x600
   const canvas = createCanvas(WIDTH, HEIGHT);
   canvas.parent('p5-canvas-container');
   frameRate(60);
 
-  // Get DOM elements 
+  // Get DOM elements
   inputValElem = document.getElementById('input-val');
   predictedOutputValElem = document.getElementById('predicted-output-val');
   targetOutputValElem = document.getElementById('target-output-val');
@@ -51,7 +45,7 @@ function setup() {
   pauseIcon = document.getElementById('pause-icon');
   buttonText = document.getElementById('button-text');
 
-  // Add event listeners 
+  // Add event listeners
   datasetSelect.addEventListener('change', handleDatasetChange);
   trainBtn.addEventListener('click', toggleTraining);
   epochsSlider.addEventListener('input', () => {
@@ -65,8 +59,8 @@ function setup() {
     updateNodeInfoPanel({ type: 'none' });
   });
 
-  // Window resize handler 
-  window.addEventListener('resize', handleResize);
+  // We no longer need a window resize handler for the canvas
+  // window.addEventListener('resize', handleResize);
 
   populateDatasetSelect();
   datasetSelect.value = currentDatasetName;
@@ -79,20 +73,7 @@ function setup() {
   populateTestDataSelect();
 }
 
-function handleResize() {
-  const container = document.getElementById('p5-canvas-container');
-  const containerWidth = container.clientWidth;
-  const containerHeight = container.clientHeight;
-
-  if (containerWidth !== WIDTH || containerHeight !== HEIGHT) {
-    WIDTH = containerWidth;
-    HEIGHT = containerHeight;
-    resizeCanvas(WIDTH, HEIGHT);
-    if (nnv) {
-      nnv.resize(WIDTH, HEIGHT);
-    }
-  }
-}
+// The handleResize function has been removed.
 
 function draw() {
   background(15, 23, 42);
@@ -170,8 +151,9 @@ function setupNetwork(datasetName) {
     ...config.options,
     learning_rate: config.options.learning_rate || 0.01
   });
-  const container = document.getElementById('p5-canvas-container');
-  nnv = new NNvisual(container.clientWidth / 2, container.clientHeight / 2, container.clientWidth - 50, container.clientHeight - 50, nn, { drawmode: 'center', weightThreshold: WEIGHT_THRESHOLD });
+
+  // NNvisual now uses the fixed WIDTH and HEIGHT
+  nnv = new NNvisual(WIDTH / 2, HEIGHT / 2, WIDTH, HEIGHT, nn, { drawmode: 'center', weightThreshold: WEIGHT_THRESHOLD });
 }
 
 function handleDatasetChange(event) {
@@ -359,8 +341,9 @@ function updateArchitecture() {
   };
 
   nn = new NeuralNetwork(inputCount, newHiddenLayers, outputCount, options);
-  const container = document.getElementById('p5-canvas-container');
-  nnv = new NNvisual(container.clientWidth / 2, container.clientHeight / 2, container.clientWidth - 50, container.clientHeight - 50, nn, { drawmode: 'center', weightThreshold: WEIGHT_THRESHOLD });
+
+  // Re-instantiate NNvisual with the fixed WIDTH and HEIGHT
+  nnv = new NNvisual(WIDTH / 2, HEIGHT / 2, WIDTH, HEIGHT, nn, { drawmode: 'center', weightThreshold: WEIGHT_THRESHOLD });
 
   displayTrainingMessage('Network architecture updated successfully!', 'success');
 }
@@ -380,75 +363,73 @@ function updateDataPanel(inputs, outputs, targets) {
 
 function updateNodeInfoPanel(nodeInfo) {
   if (nodeInfo.type === 'none') {
-    selectedNodeInfoElem.innerHTML = ` 
-                    <div class="flex flex-col items-center justify-center py-6 md:py-8 text-center"> 
-                        <svg class="w-8 md:w-12 h-8 md:h-12 text-neural-500 mb-2 md:mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"> 
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5M7.188 2.239l.777 2.897M5.136 7.965l-2.898-.777M13.95 4.05l-2.122 2.122m-5.657 5.656l-2.12 2.122"/> 
-                        </svg> 
-                        <p class="text-neural-400 text-xs md:text-sm">Click on any node to view detailed information</p> 
-                    </div> 
+    selectedNodeInfoElem.innerHTML = `
+                    <div class="flex flex-col items-center justify-center py-6 md:py-8 text-center">
+                        <svg class="w-8 md:w-12 h-8 md:h-12 text-neural-500 mb-2 md:mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5M7.188 2.239l.777 2.897M5.136 7.965l-2.898-.777M13.95 4.05l-2.122 2.122m-5.657 5.656l-2.12 2.122"/>
+                        </svg>
+                        <p class="text-neural-400 text-xs md:text-sm">Click on any node to view detailed information</p>
+                    </div>
                 `;
   } else if (nodeInfo.type === 'node') {
-    let html = ` 
-                    <div class="space-y-2"> 
-                                                <div class="bg-neural-700/30 rounded-lg p-2"> 
-                            <h4 class="font-semibold text-blue-400 mb-1 text-sm">Node Info</h4> 
-                            <div class="grid grid-cols-2 gap-1 text-xs"> 
-                                <div><span class="text-neural-400">Type:</span></div> 
-                                <div class="text-neural-100">${nodeInfo.layerLabel}</div> 
-                                <div><span class="text-neural-400">Index:</span></div> 
-                                <div class="text-neural-100">${nodeInfo.index}</div> 
-                                <div><span class="text-neural-400">Value:</span></div> 
-                                <div class="text-green-400 font-mono">${nodeInfo.activationValue?.toFixed(3) || 'N/A'}</div> 
-                            </div> 
-                        </div> 
+    let html = `
+                    <div class="space-y-2">
+                        <div class="bg-neural-700/30 rounded-lg p-2">
+                            <h4 class="font-semibold text-blue-400 mb-1 text-sm">Node Info</h4>
+                            <div class="grid grid-cols-2 gap-1 text-xs">
+                                <div><span class="text-neural-400">Type:</span></div>
+                                <div class="text-neural-100">${nodeInfo.layerLabel}</div>
+                                <div><span class="text-neural-400">Index:</span></div>
+                                <div class="text-neural-100">${nodeInfo.index}</div>
+                                <div><span class="text-neural-400">Value:</span></div>
+                                <div class="text-green-400 font-mono">${nodeInfo.activationValue?.toFixed(3) || 'N/A'}</div>
+                            </div>
+                        </div>
                 `;
 
     if (nodeInfo.layer > 0) {
-      // Summary statistics for weights 
       const weights = nodeInfo.inputDetails?.map(d => parseFloat(d.weight)) || [];
       const avgWeight = weights.length > 0 ? (weights.reduce((a, b) => a + b, 0) / weights.length).toFixed(3) : 'N/A';
       const maxWeight = weights.length > 0 ? Math.max(...weights).toFixed(3) : 'N/A';
       const minWeight = weights.length > 0 ? Math.min(...weights).toFixed(3) : 'N/A';
       const strongConnections = weights.filter(w => Math.abs(w) > 0.5).length;
 
-      html += ` 
-                                                <div class="bg-neural-700/30 rounded-lg p-2"> 
-                            <h4 class="font-semibold text-purple-400 mb-1 text-sm">Computation</h4> 
-                            <div class="grid grid-cols-2 gap-1 text-xs"> 
-                                <div><span class="text-neural-400">Function:</span></div> 
-                                <div class="text-neutral-100 font-mono">${nodeInfo.activationFunctionName}</div> 
-                                <div><span class="text-neural-400">Sum:</span></div> 
-                                <div class="text-orange-400 font-mono">${nodeInfo.weightedSum || 'N/A'}</div> 
-                                <div><span class="text-neural-400">Bias:</span></div> 
-                                <div class="text-pink-400 font-mono">${nodeInfo.biasValue || 'N/A'}</div> 
-                            </div> 
-                        </div> 
+      html += `
+                        <div class="bg-neural-700/30 rounded-lg p-2">
+                            <h4 class="font-semibold text-purple-400 mb-1 text-sm">Computation</h4>
+                            <div class="grid grid-cols-2 gap-1 text-xs">
+                                <div><span class="text-neural-400">Function:</span></div>
+                                <div class="text-neutral-100 font-mono">${nodeInfo.activationFunctionName}</div>
+                                <div><span class="text-neural-400">Sum:</span></div>
+                                <div class="text-orange-400 font-mono">${nodeInfo.weightedSum || 'N/A'}</div>
+                                <div><span class="text-neural-400">Bias:</span></div>
+                                <div class="text-pink-400 font-mono">${nodeInfo.biasValue || 'N/A'}</div>
+                            </div>
+                        </div>
 
-                                                <div class="bg-neural-700/30 rounded-lg p-2"> 
-                            <div class="flex items-center justify-between mb-1"> 
-                                <h4 class="font-semibold text-cyan-400 text-sm">Weight Stats</h4> 
-                                <button onclick="toggleWeightDetails()" class="text-xs text-neural-400 hover:text-cyan-400 transition-colors"> 
-                                    <span id="weight-toggle-text">Show All</span> 
-                                </button> 
-                            </div> 
-                            <div class="grid grid-cols-2 gap-1 text-xs mb-2"> 
-                                <div><span class="text-neural-400">Inputs:</span></div> 
-                                <div class="text-neutral-100">${weights.length}</div> 
-                                <div><span class="text-neural-400">Strong:</span></div> 
-                                <div class="text-yellow-400">${strongConnections}</div> 
-                                <div><span class="text-neural-400">Avg:</span></div> 
-                                <div class="text-neutral-100 font-mono">${avgWeight}</div> 
-                                <div><span class="text-neural-400">Range:</span></div> 
-                                <div class="text-neutral-100 font-mono">${minWeight} to ${maxWeight}</div> 
-                            </div> 
-                             
-                                                        <div id="weight-details" class="hidden"> 
-                                <div class="border-t border-neural-600 pt-1 mt-1 max-h-24 overflow-y-auto"> 
+                        <div class="bg-neural-700/30 rounded-lg p-2">
+                            <div class="flex items-center justify-between mb-1">
+                                <h4 class="font-semibold text-cyan-400 text-sm">Weight Stats</h4>
+                                <button onclick="toggleWeightDetails()" class="text-xs text-neural-400 hover:text-cyan-400 transition-colors">
+                                    <span id="weight-toggle-text">Show All</span>
+                                </button>
+                            </div>
+                            <div class="grid grid-cols-2 gap-1 text-xs mb-2">
+                                <div><span class="text-neural-400">Inputs:</span></div>
+                                <div class="text-neutral-100">${weights.length}</div>
+                                <div><span class="text-neural-400">Strong:</span></div>
+                                <div class="text-yellow-400">${strongConnections}</div>
+                                <div><span class="text-neural-400">Avg:</span></div>
+                                <div class="text-neutral-100 font-mono">${avgWeight}</div>
+                                <div><span class="text-neural-400">Range:</span></div>
+                                <div class="text-neutral-100 font-mono">${minWeight} to ${maxWeight}</div>
+                            </div>
+                            
+                            <div id="weight-details" class="hidden">
+                                <div class="border-t border-neural-600 pt-1 mt-1 max-h-24 overflow-y-auto">
                     `;
 
       if (nodeInfo.inputDetails && nodeInfo.inputDetails.length > 0) {
-        // Show only top 5 strongest connections by default 
         const sortedWeights = nodeInfo.inputDetails
           .map((detail, i) => ({ ...detail, index: i, absWeight: Math.abs(parseFloat(detail.weight)) }))
           .sort((a, b) => b.absWeight - a.absWeight);
@@ -457,12 +438,12 @@ function updateNodeInfoPanel(nodeInfo) {
 
         topWeights.forEach((detail) => {
           const isStrong = detail.absWeight > 0.5;
-          html += ` 
-                                <div class="flex justify-between text-xs py-0.5 ${isStrong ? 'text-yellow-400' : ''}"> 
-                                    <span class="text-neural-400">In${detail.index}:</span> 
-                                    <span class="font-mono">${detail.input} × ${detail.weight}</span> 
-                                </div> 
-                            `;
+          html += `
+                                    <div class="flex justify-between text-xs py-0.5 ${isStrong ? 'text-yellow-400' : ''}">
+                                        <span class="text-neural-400">In${detail.index}:</span>
+                                        <span class="font-mono">${detail.input} × ${detail.weight}</span>
+                                    </div>
+                                `;
         });
 
         if (sortedWeights.length > 5) {
@@ -470,10 +451,10 @@ function updateNodeInfoPanel(nodeInfo) {
         }
       }
 
-      html += ` 
-                                </div> 
-                            </div> 
-                        </div> 
+      html += `
+                                </div>
+                            </div>
+                        </div>
                     `;
     }
 
@@ -481,30 +462,30 @@ function updateNodeInfoPanel(nodeInfo) {
     selectedNodeInfoElem.innerHTML = html;
   } else if (nodeInfo.type === 'bias') {
     let html = `
-      <div class="space-y-2">
-        <div class="bg-neural-700/30 rounded-lg p-2">
-          <h4 class="font-semibold text-yellow-400 mb-1 text-sm">Bias Node</h4>
-          <div class="grid grid-cols-2 gap-1 text-xs">
-            <div><span class="text-neural-400">Value:</span></div>
-            <div class="text-neutral-100 font-mono">${nodeInfo.biasValue}</div>
-            <div><span class="text-neural-400">Layer:</span></div>
-            <div class="text-neutral-100">${nodeInfo.layer}</div>
-          </div>
-        </div>
-    `;
+            <div class="space-y-2">
+                <div class="bg-neural-700/30 rounded-lg p-2">
+                    <h4 class="font-semibold text-yellow-400 mb-1 text-sm">Bias Node</h4>
+                    <div class="grid grid-cols-2 gap-1 text-xs">
+                        <div><span class="text-neural-400">Value:</span></div>
+                        <div class="text-neutral-100 font-mono">${nodeInfo.biasValue}</div>
+                        <div><span class="text-neural-400">Layer:</span></div>
+                        <div class="text-neutral-100">${nodeInfo.layer}</div>
+                    </div>
+                </div>
+        `;
     if (nodeInfo.biasWeights && nodeInfo.biasWeights.length > 0) {
       html += `<div class="bg-neural-700/30 rounded-lg p-2">
-        <h4 class="font-semibold text-orange-400 mb-1 text-sm">Connections (${nodeInfo.biasWeights.length})</h4>
-        <div class="max-h-20 overflow-y-auto space-y-0.5">
-      `;
+                <h4 class="font-semibold text-orange-400 mb-1 text-sm">Connections (${nodeInfo.biasWeights.length})</h4>
+                <div class="max-h-20 overflow-y-auto space-y-0.5">
+            `;
       nodeInfo.biasWeights.forEach((detail) => {
         const isStrong = Math.abs(parseFloat(detail.weight)) > 0.5;
         html += `
-          <div class="flex justify-between text-xs ${isStrong ? 'text-yellow-400' : ''}">
-            <span class="text-neural-400">Node ${detail.node}:</span>
-            <span class="font-mono">${detail.weight}</span>
-          </div>
-        `;
+                    <div class="flex justify-between text-xs ${isStrong ? 'text-yellow-400' : ''}">
+                        <span class="text-neural-400">Node ${detail.node}:</span>
+                        <span class="font-mono">${detail.weight}</span>
+                    </div>
+                `;
       });
       html += `</div></div>`;
     }
@@ -513,7 +494,7 @@ function updateNodeInfoPanel(nodeInfo) {
   }
 }
 
-// Toggle function for weight details 
+// Toggle function for weight details
 window.toggleWeightDetails = function () {
   const details = document.getElementById('weight-details');
   const toggleText = document.getElementById('weight-toggle-text');
