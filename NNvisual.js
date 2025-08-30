@@ -7,7 +7,7 @@ class NNvisual {
      * @param {NeuralNetwork} nn_ - The neural network object to visualize.
      * @param {Object} options - Visualization options.
      */
-    constructor(x_, y_, w_, h_, nn_, options = { drawmode: 'center', showinfobox: true }) {
+    constructor(x_, y_, w_, h_, nn_, options = { drawmode: 'center', showinfobox: true, weightThreshold: 0.8 }) {
         this.options = options;
         this.drawmode = options.drawmode.toLowerCase() || 'default';
 
@@ -18,7 +18,7 @@ class NNvisual {
             this.x = x_;
             this.y = y_;
         }
-
+        this.WEIGHT_THRESHOLD = options.weightThreshold !== undefined ? options.weightThreshold : 0.8;
         this.w = w_;
         this.h = h_;
         this.nn = nn_;
@@ -224,7 +224,6 @@ class NNvisual {
 
     drawSelectedPathConnections() {
         const numLayers = this.nodePositions.length;
-        const WEIGHT_THRESHOLD = 0.8;
         let nodesInPath = new Set();
         let inputs_ = this.nn.lastInputs;
 
@@ -242,7 +241,7 @@ class NNvisual {
             for (let j = 0; j < nextLayerNodes.length; j++) {
                 if (nodesInPath.has(`${l},${j}`)) {
                     const biasWeight = biasConnectionsMatrix.data[j][0];
-                    if (abs(biasWeight) > WEIGHT_THRESHOLD) {
+                    if (abs(biasWeight) > this.WEIGHT_THRESHOLD) {
                         this.drawConnectionAndParticle(this.biasNodePositions[l - 1], nextLayerNodes[j], biasWeight, 1);
                     }
 
@@ -256,7 +255,7 @@ class NNvisual {
 
                         // The logic change is here:
                         // Draw connections if the weight is significant OR the source node is an active input node.
-                        if (abs(weight) > WEIGHT_THRESHOLD || isInputActive) {
+                        if (abs(weight) > this.WEIGHT_THRESHOLD || isInputActive) {
                             this.drawConnectionAndParticle(prevLayerNodes[i], nextLayerNodes[j], weight, activationStrength);
                             newNodesInPrevLayer.add(`${l - 1},${i}`);
                         }
@@ -452,17 +451,30 @@ class NNvisual {
                 let weightsToThisNode = this.nn.weights[layer - 1].data[index];
                 let biasValue = this.nn.biases[layer - 1].data[index][0];
 
+                // Define the threshold here for consistency with the drawing logic
+                
+
+                let strongConnectionsCount = 0;
+
                 for (let i = 0; i < weightsToThisNode.length; i++) {
                     let input = prevActivations[i][0];
                     let weight = weightsToThisNode[i];
                     weightedSum += input * weight;
                     inputDetails.push({ input: nf(input, 1, 2), weight: nf(weight, 1, 2) });
+
+                    // Increment the count if the absolute weight is above the threshold
+                    if (abs(weight) > this.WEIGHT_THRESHOLD) {
+                        strongConnectionsCount++;
+                    }
                 }
                 weightedSum += biasValue;
 
                 info.weightedSum = nf(weightedSum, 1, 2);
                 info.biasValue = nf(biasValue, 1, 2);
                 info.inputDetails = inputDetails;
+
+                // Add the strong connections count to the info object
+                info.strongConnections = strongConnectionsCount;
             }
         } else if (type === 'bias') {
             let nextLayerSize = this.nodePositions[layer].length;

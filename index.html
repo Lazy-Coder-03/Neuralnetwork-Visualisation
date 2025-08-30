@@ -1,250 +1,481 @@
-
+<!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Neural Network Visualization</title>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Neural Network Visualization Platform</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.4/p5.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.4/addons/p5.sound.min.js"></script>
-    <script src="Matrix.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        'sans': ['Inter', 'system-ui', 'sans-serif'],
+                        'mono': ['JetBrains Mono', 'monospace']
+                    },
+                    colors: {
+                        'neural': {
+                            50: '#f8fafc',
+                            100: '#f1f5f9',
+                            200: '#e2e8f0',
+                            300: '#cbd5e1',
+                            400: '#94a3b8',
+                            500: '#64748b',
+                            600: '#475569',
+                            700: '#334155',
+                            800: '#1e293b',
+                            900: '#0f172a',
+                            950: '#020617'
+                        }
+                    }
+                },
+                // Add this custom configuration for the grid layout
+                gridTemplateColumns: {
+                    '3-col': '1fr 2fr 1fr',
+                }
+            },
+        }
+    </script>
     <style>
-      @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap");
-
-      body {
-        font-family: "Inter", sans-serif;
-        margin: 0;
-        padding: 0;
-        height: auto;
-        width: 100vw;
-        background-color: #0d1117;
-        color: #e2e8f0;
-        display: flex;
-        flex-direction: column;
-        justify-content: flex-start;
-        align-items: center;
-        overflow: auto;
-      }
-
-      #title-container {
-        text-align: center;
-        margin: 2rem 0;
-      }
-
-      #app-container {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 2rem;
-        max-width: 95%;
-        padding: 1rem;
-      }
-
-      .side-panel {
-        width: 100%;
-        max-width: 400px;
-        background-color: #1a202c;
-        border-radius: 10px;
-        padding: 1.5rem;
-        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-        display: flex;
-        flex-direction: column;
-        gap: 1.5rem;
-      }
-
-      canvas {
-        border: 3px solid #2f363d;
-        border-radius: 10px;
-        box-shadow: 0 8px 16px rgba(0, 0, 0, 0.3);
-      }
-
-      .data-card {
-        background-color: #2d3748;
-        border-radius: 8px;
-        padding: 1rem;
-      }
-
-      table {
-        width: 100%;
-        text-align: left;
-        border-collapse: collapse;
-        table-layout: fixed;
-      }
-
-      .scroll-x {
-        max-width: 100%;
-        overflow-x: auto;
-        white-space: nowrap;
-      }
-
-      th,
-      td {
-        padding: 0.75rem;
-        border-bottom: 1px solid #4a5568;
-      }
-
-      th {
-        font-weight: 700;
-        color: #a0aec0;
-      }
-
-      .layer-input-group {
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-        margin-bottom: 0.5rem;
-      }
-
-      .layer-input-group input {
-        flex-grow: 1;
-      }
-
-      @media (min-width: 1024px) {
-        #app-container {
-          flex-direction: row;
-          align-items: flex-start;
+        * {
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
         }
-        #left-controls-panel {
-          order: 1;
+        
+        body {
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+            min-height: 100vh;
         }
-        #main-content {
-          order: 2;
+        
+        .glass-panel {
+            background: rgba(30, 41, 59, 0.8);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(148, 163, 184, 0.1);
+            box-shadow: 
+                0 20px 25px -5px rgba(0, 0, 0, 0.1),
+                0 10px 10px -5px rgba(0, 0, 0, 0.04),
+                inset 0 1px 0 0 rgba(148, 163, 184, 0.1);
         }
-        #right-panel {
-          order: 3;
+        
+        .neural-canvas {
+            border-radius: 12px;
+            box-shadow: 
+                0 25px 50px -12px rgba(0, 0, 0, 0.25),
+                inset 0 1px 0 rgba(148, 163, 184, 0.1);
+            background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
         }
-      }
+        
+        /* New aspect ratio container */
+        .canvas-container {
+            position: relative;
+            width: 100%;
+            padding-top: 75%; /* 4:3 Aspect Ratio (3/4 * 100) */
+        }
+        
+        .canvas-container #p5-canvas-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+
+        .control-button {
+            background: linear-gradient(135deg, #3b82f6, #6366f1);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .control-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(59, 130, 246, 0.3);
+        }
+        
+        .control-button:active {
+            transform: translateY(0);
+        }
+        
+        .control-button::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+            transition: left 0.5s;
+        }
+        
+        .control-button:hover::before {
+            left: 100%;
+        }
+        
+        .danger-button {
+            background: linear-gradient(135deg, #ef4444, #dc2626);
+        }
+        
+        .danger-button:hover {
+            box-shadow: 0 10px 25px rgba(239, 68, 68, 0.3);
+        }
+        
+        .success-button {
+            background: linear-gradient(135deg, #10b981, #059669);
+        }
+        
+        .success-button:hover {
+            box-shadow: 0 10px 25px rgba(16, 185, 129, 0.3);
+        }
+        
+        .data-table {
+            border-collapse: separate;
+            border-spacing: 0;
+            overflow: hidden;
+            border-radius: 8px;
+            border: 1px solid rgba(148, 163, 184, 0.1);
+        }
+        
+        .data-table th {
+            background: rgba(51, 65, 85, 0.5);
+            backdrop-filter: blur(10px);
+        }
+        
+        .data-table td {
+            background: rgba(30, 41, 59, 0.3);
+            backdrop-filter: blur(5px);
+        }
+        
+        .data-table tr:hover td {
+            background: rgba(51, 65, 85, 0.5);
+        }
+        
+        .metric-card {
+            background: linear-gradient(135deg, rgba(59, 130, 246, 0.1), rgba(99, 102, 241, 0.1));
+            border: 1px solid rgba(59, 130, 246, 0.2);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .metric-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, #3b82f6, #6366f1, #8b5cf6);
+        }
+        
+        .custom-slider {
+            -webkit-appearance: none;
+            appearance: none;
+            height: 6px;
+            border-radius: 3px;
+            background: rgba(148, 163, 184, 0.3);
+            outline: none;
+        }
+        
+        .custom-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #3b82f6, #6366f1);
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+            transition: all 0.3s ease;
+        }
+        
+        .custom-slider::-webkit-slider-thumb:hover {
+            transform: scale(1.1);
+            box-shadow: 0 6px 16px rgba(59, 130, 246, 0.4);
+        }
+        
+        .custom-select {
+            background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3e%3c/svg%3e");
+            background-position: right 0.5rem center;
+            background-repeat: no-repeat;
+            background-size: 1.5em 1.5em;
+            padding-right: 2.5rem;
+        }
+        
+        .pulse-animation {
+            animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+        
+        .slide-in {
+            animation: slideIn 0.3s ease-out;
+        }
+        
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        /* Mobile optimizations */
+        @media (max-width: 768px) {
+            .glass-panel {
+                margin: 0.5rem;
+                padding: 1rem;
+            }
+            
+            .control-button {
+                padding: 0.75rem 1rem;
+                font-size: 0.875rem;
+            }
+            
+            .metric-card {
+                padding: 1rem;
+            }
+            
+            .mobile-canvas {
+                width: 100% !important;
+                height: 400px !important;
+            }
+        }
+        
+        @media (max-width: 640px) {
+            .mobile-canvas {
+                height: 300px !important;
+            }
+        }
+        
+        /* Desktop canvas sizing */
+        @media (min-width: 1024px) {
+            .desktop-canvas {
+                width: 700px !important;
+                height: 500px !important;
+            }
+        }
+        
+        /* Tablet canvas sizing */
+        @media (min-width: 768px) and (max-width: 1023px) {
+            .tablet-canvas {
+                width: 600px !important;
+                height: 450px !important;
+            }
+        }
+        
+        /* Scrollbar styling */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        
+        ::-webkit-scrollbar-track {
+            background: rgba(30, 41, 59, 0.5);
+            border-radius: 4px;
+        }
+        
+        ::-webkit-scrollbar-thumb {
+            background: rgba(59, 130, 246, 0.6);
+            border-radius: 4px;
+        }
+        
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(59, 130, 246, 0.8);
+        }
+        
+        /* Layer input styling */
+        .layer-input-group {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 0.5rem;
+        }
+        
+        .layer-input-group input[type="number"] {
+            flex-grow: 1;
+            max-width: 80px;
+        }
+        
+        .remove-layer-btn {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            line-height: 1;
+            background: linear-gradient(135deg, #ef4444, #dc2626);
+            color: white;
+            border: none;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .remove-layer-btn:hover {
+            transform: scale(1.1);
+            box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+        }
     </style>
-  </head>
-
-  <body class="bg-gray-900 text-gray-200">
-    <div id="title-container">
-      <h1 class="text-3xl font-bold mb-2">Neural Network Visualization</h1>
-      <p class="text-sm text-gray-400">
-        A live view of a neural network learning to encode data.
-      </p>
-    </div>
-
-    <div id="app-container">
-      <div id="left-controls-panel" class="side-panel">
-        <div class="data-card">
-          <h2 class="text-lg font-bold mb-2 text-white">Current Data</h2>
-          <table>
-            <thead>
-              <tr>
-                <th>Name</th>
-                <th>Value</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr id="input-row">
-                <td class="text-gray-400">Input</td>
-                <td id="input-val" class="scroll-x"></td>
-              </tr>
-              <tr id="predicted-output-row">
-                <td class="text-gray-400">Predicted Output</td>
-                <td id="predicted-output-val" class="scroll-x"></td>
-              </tr>
-              <tr id="target-output-row">
-                <td class="text-gray-400">Target Output</td>
-                <td id="target-output-val" class="scroll-x"></td>
-              </tr>
-            </tbody>
-          </table>
+</head>
+<body class="bg-neural-900 text-neural-100 min-h-screen">
+    <header class="glass-panel border-b border-neural-700/50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-4">
+                    <div class="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
+                        <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z"/>
+                        </svg>
+                    </div>
+                    <div>
+                        <h1 class="text-xl md:text-3xl font-bold bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">
+                            Neural Network Visualization
+                        </h1>
+                        <p class="text-neural-400 text-xs md:text-base">Interactive deep learning visualization platform</p>
+                    </div>
+                </div>
+                <div class="hidden md:flex items-center space-x-4">
+                    <div class="metric-card rounded-lg px-4 py-2">
+                        <div class="text-xs text-neural-400 uppercase tracking-wide">Status</div>
+                        <div id="training-status" class="text-sm font-semibold text-green-400">Ready</div>
+                    </div>
+                </div>
+            </div>
         </div>
+    </header>
 
-        <div class="data-card">
-          <h2 class="text-lg font-bold mb-2 text-white">
-            Selected Node Details
-          </h2>
-          <div id="selected-node-info" class="text-sm">
-            Click a node to view its details.
-          </div>
+    <main class="max-w-7xl mx-auto px-2 sm:px-6 lg:px-8 py-4 md:py-8">
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6 items-start">
+            <div class="flex flex-col space-y-4 md:space-y-5 order-2 lg:order-1">
+                <div class="glass-panel rounded-xl p-4 md:p-6 h-fit">
+                    <h2 class="text-lg md:text-xl font-semibold mb-4 text-neural-100">Current Prediction</h2>
+                    <div class="space-y-4">
+                        <table class="data-table w-full text-xs md:text-sm">
+                            <tbody>
+                                <tr>
+                                    <td class="px-2 md:px-3 py-2 font-medium text-neural-300">Input</td>
+                                    <td id="input-val" class="px-2 md:px-3 py-2 font-mono text-neural-100 text-xs">-</td>
+                                </tr>
+                                <tr>
+                                    <td class="px-2 md:px-3 py-2 font-medium text-neural-300">Predicted</td>
+                                    <td id="predicted-output-val" class="px-2 md:px-3 py-2 font-mono text-blue-400 text-xs">-</td>
+                                </tr>
+                                <tr>
+                                    <td class="px-2 md:px-3 py-2 font-medium text-neural-300">Target</td>
+                                    <td id="target-output-val" class="px-2 md:px-3 py-2 font-mono text-green-400 text-xs">-</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="glass-panel rounded-xl p-4 md:p-6 flex-1">
+                    <h2 class="text-lg md:text-xl font-semibold mb-4 text-neural-100">Node Details</h2>
+                    <div id="selected-node-info" class="text-xs md:text-sm text-neural-300 h-full">
+                        <div class="flex flex-col items-center justify-center py-8 md:py-12 text-center h-full min-h-[200px]">
+                            <svg class="w-8 md:w-12 h-8 md:h-12 text-neural-500 mb-2 md:mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5M7.188 2.239l.777 2.897M5.136 7.965l-2.898-.777M13.95 4.05l-2.122 2.122m-5.657 5.656l-2.12 2.122"/>
+                            </svg>
+                            <p class="text-neutral-400 text-xs md:text-sm">Click on any node to view detailed information</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex flex-col space-y-4 md:space-y-5 order-1 lg:order-2">
+                <div class="glass-panel rounded-xl p-4 md:p-6 h-fit">
+                    <div class="flex items-center justify-between mb-4">
+                        <h2 class="text-lg md:text-xl font-semibold text-neural-100">Network Visualization</h2>
+                        <div class="flex items-center space-x-2">
+                            <div class="w-2 h-2 bg-green-400 rounded-full pulse-animation"></div>
+                            <span class="text-xs md:text-sm text-neural-400">Live</span>
+                        </div>
+                    </div>
+                    <div class="canvas-container neural-canvas">
+                        <div id="p5-canvas-container" class="overflow-hidden w-full flex justify-center items-center"></div>
+                    </div>
+                </div>
+                <div class="glass-panel rounded-xl p-4 md:p-6 h-fit">
+                    <h2 class="text-lg md:text-xl font-semibold mb-4 text-neural-100">Architecture</h2>
+                    <div class="flex flex-col md:flex-row md:space-x-6">
+                        <div class="md:w-1/2">
+                            <p class="text-xs md:text-sm text-neural-400 mb-2">
+                                Modify network layers (Max 20 nodes per layer)
+                            </p>
+                            <div id="hidden-layers-container" class="space-y-2"></div>
+                            <div class="flex space-x-2 mt-4">
+                                <button id="add-layer-btn" class="control-button flex-1 py-1.5 md:py-2 px-2 md:px-3 rounded-lg text-xs md:text-sm font-medium text-white">
+                                    Add Layer
+                                </button>
+                                <button id="update-arch-btn" class="success-button flex-1 py-1.5 md:py-2 px-2 md:px-3 rounded-lg text-xs md:text-sm font-medium text-white">
+                                    Update
+                                </button>
+                            </div>
+                        </div>
+                        <div class="md:w-1/2 mt-4 md:mt-0">
+                            <h4 class="text-sm md:text-md font-semibold text-neural-300">Activation Functions</h4>
+                            <div id="activation-functions-container" class="space-y-2 pt-2"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex flex-col space-y-4 md:space-y-5 order-3 lg:order-3">
+                <div class="glass-panel rounded-xl p-4 md:p-6 h-fit">
+                    <h2 class="text-lg md:text-xl font-semibold mb-4 text-neural-100">Dataset Configuration</h2>
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-xs md:text-sm font-medium text-neural-300 mb-2">Training Dataset</label>
+                            <select id="dataset-select" class="custom-select w-full px-3 py-2 bg-neural-700/50 border border-neural-600/50 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-border-transparent text-neural-100 text-sm">
+                                <option>Loading datasets...</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs md:text-sm font-medium text-neural-300 mb-2">Test Case</label>
+                            <select id="test-data-select" class="custom-select w-full px-3 py-2 bg-neural-700/50 border border-neural-600/50 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-border-transparent text-neural-100 text-sm">
+                                <option>Select test case...</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="glass-panel rounded-xl p-4 md:p-6 h-fit">
+                    <h2 class="text-lg md:text-xl font-semibold mb-4 text-neural-100">Training Controls</h2>
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-xs md:text-sm font-medium text-neural-300 mb-2">
+                                Training Speed
+                                <span id="epochs-val" class="text-blue-400 font-semibold">100</span> epochs/frame
+                            </label>
+                            <input type="range" id="epochs-slider" min="1" max="500" value="100" class="custom-slider w-full">
+                        </div>
+                        <button id="play-pause-btn" class="control-button w-full py-2 md:py-3 px-4 rounded-lg font-semibold text-white transition-all duration-300">
+                            <span class="flex items-center justify-center space-x-2">
+                                <svg id="play-icon" class="w-4 md:w-5 h-4 md:h-5" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd"/>
+                                </svg>
+                                <svg id="pause-icon" class="w-4 md:w-5 h-4 md:h-5 hidden" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zM7 8a1 1 0 012 0v4a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v4a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd"/>
+                                </svg>
+                                <span id="button-text" class="text-sm md:text-base">Start Training</span>
+                            </span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div id="training-message-container" class="space-y-2 h-fit col-span-1 lg:col-span-3"></div>
         </div>
-      </div>
-
-      <div id="main-content">
-        <div id="p5-canvas-container" class="rounded-lg shadow-xl"></div>
-      </div>
-
-      <div id="right-panel" class="side-panel">
-        <div class="data-card">
-          <h2 class="text-lg font-bold mb-2 text-white">Training Parameters</h2>
-          <div class="mb-4 flex items-center gap-4">
-            <label for="epochs-slider" class="text-gray-400"
-              >Epochs per Frame:</label
-            >
-            <input
-              type="range"
-              id="epochs-slider"
-              min="1"
-              max="500"
-              value="100"
-              class="w-40"
-            />
-            <span id="epochs-val" class="text-white font-bold">100</span>
-          </div>
-          <div class="mb-4 flex items-center gap-4">
-            <label for="dataset-select" class="text-gray-400"
-              >Select Dataset:</label
-            >
-            <select
-              id="dataset-select"
-              class="rounded px-2 py-1 bg-gray-700 text-gray-200"
-            ></select>
-          </div>
-          <div class="mb-4 flex items-center gap-4">
-            <label for="test-data-select" class="text-gray-400"
-              >Select Test Data:</label
-            >
-            <select
-              id="test-data-select"
-              class="rounded px-2 py-1 bg-gray-700 text-gray-200"
-            ></select>
-          </div>
-          <button
-            id="play-pause-btn"
-            class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded transition-colors duration-200"
-          >
-            Train Network
-          </button>
-          <div id="training-message-container"></div>
-        </div>
-
-        <div class="data-card">
-          <h2 class="text-lg font-bold mb-2 text-white">
-            Network Architecture
-          </h2>
-          <p class="text-sm text-gray-400 mb-2">
-            Change the number of hidden layers and nodes. (Max 20 nodes per
-            layer)
-          </p>
-          <div id="hidden-layers-container"></div>
-          <div class="flex items-center gap-2 mt-4">
-            <button
-              id="add-layer-btn"
-              class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-1 px-4 rounded transition-colors duration-200 text-sm"
-            >
-              Add Layer
-            </button>
-            <button
-              id="update-arch-btn"
-              class="bg-purple-600 hover:bg-purple-700 text-white font-bold py-1 px-4 rounded transition-colors duration-200 text-sm"
-            >
-              Update
-            </button>
-          </div>
-          <!-- New section for activation functions -->
-          <h4 class="text-md font-bold text-white mt-4 mb-2">Activation Functions</h4>
-          <p class="text-sm text-gray-400 mb-2">
-            Select an activation function for each layer.
-          </p>
-          <div id="activation-functions-container"></div>
-        </div>
-      </div>
-    </div>
+    </main>
+    <script src="Matrix.js"></script>
     <script src="NeuralNetwork.js"></script>
     <script src="NNvisual.js"></script>
     <script src="sketch.js"></script>
-  </body>
+</body>
 </html>

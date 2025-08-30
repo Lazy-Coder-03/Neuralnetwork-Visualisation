@@ -1,16 +1,16 @@
-let WIDTH = 800;
-let HEIGHT = 600;
+let WIDTH, HEIGHT;
 let nn, nnv;
 const ERROR_THRESHOLD = 0.001;
 let currentInputIndex = 0;
 let datasets;
-let currentDatasetName = 'Encoder 3bit'; // Updated to match the new key name
+let currentDatasetName = 'Encoder 3bit';
 let isTraining = false;
 let epochsPerFrame = 100;
+const WEIGHT_THRESHOLD = 0.5; // You can adjust this value as needed
 
 let inputValElem, predictedOutputValElem, targetOutputValElem, selectedNodeInfoElem, trainingMessageElem;
 let datasetSelect, trainBtn, epochsSlider, epochsVal, hiddenLayersContainer, addLayerBtn, updateArchBtn, activationFunctionsContainer;
-let testDataSelect;
+let testDataSelect, trainingStatusElem, playIcon, pauseIcon, buttonText;
 
 const activationFunctionNames = ['sigmoid', 'relu', 'tanh', 'identity', 'softmax'];
 
@@ -19,10 +19,19 @@ function preload() {
 }
 
 function setup() {
-  createCanvas(WIDTH, HEIGHT).parent('p5-canvas-container');
+  // Responsive canvas sizing 
+  const container = document.getElementById('p5-canvas-container');
+  const containerWidth = container.clientWidth;
+  const containerHeight = container.clientHeight;
+
+  WIDTH = containerWidth;
+  HEIGHT = containerHeight;
+
+  const canvas = createCanvas(WIDTH, HEIGHT);
+  canvas.parent('p5-canvas-container');
   frameRate(60);
 
-  // Get DOM elements
+  // Get DOM elements 
   inputValElem = document.getElementById('input-val');
   predictedOutputValElem = document.getElementById('predicted-output-val');
   targetOutputValElem = document.getElementById('target-output-val');
@@ -37,10 +46,12 @@ function setup() {
   trainingMessageElem = document.getElementById('training-message-container');
   testDataSelect = document.getElementById('test-data-select');
   activationFunctionsContainer = document.getElementById('activation-functions-container');
+  trainingStatusElem = document.getElementById('training-status');
+  playIcon = document.getElementById('play-icon');
+  pauseIcon = document.getElementById('pause-icon');
+  buttonText = document.getElementById('button-text');
 
-  trainBtn.textContent = 'Train Network';
-
-  // Add event listeners
+  // Add event listeners 
   datasetSelect.addEventListener('change', handleDatasetChange);
   trainBtn.addEventListener('click', toggleTraining);
   epochsSlider.addEventListener('input', () => {
@@ -54,13 +65,12 @@ function setup() {
     updateNodeInfoPanel({ type: 'none' });
   });
 
-  // Populate the dataset dropdown with keys from the JSON
-  populateDatasetSelect();
+  // Window resize handler 
+  window.addEventListener('resize', handleResize);
 
-  // Set the initial dropdown value to match the new default name
+  populateDatasetSelect();
   datasetSelect.value = currentDatasetName;
 
-  // Initialize with default layers
   const defaultLayers = datasets[currentDatasetName].network.hiddenLayers;
   const defaultActivations = datasets[currentDatasetName].network.options.activationFunctions;
   defaultLayers.forEach((numNodes, index) => addHiddenLayerControls(numNodes, defaultActivations[index]));
@@ -69,42 +79,54 @@ function setup() {
   populateTestDataSelect();
 }
 
+function handleResize() {
+  const container = document.getElementById('p5-canvas-container');
+  const containerWidth = container.clientWidth;
+  const containerHeight = container.clientHeight;
+
+  if (containerWidth !== WIDTH || containerHeight !== HEIGHT) {
+    WIDTH = containerWidth;
+    HEIGHT = containerHeight;
+    resizeCanvas(WIDTH, HEIGHT);
+    if (nnv) {
+      nnv.resize(WIDTH, HEIGHT);
+    }
+  }
+}
+
 function draw() {
-  background(5);
+  background(15, 23, 42);
 
   if (isTraining) {
     let totalError = 0;
-    // Training loop
     for (let i = 0; i < epochsPerFrame; i++) {
       let data = random(datasets[currentDatasetName].data);
       nn.train(data.inputs, data.targets);
     }
 
-    // Check for training completion by calculating total error
     for (let data of datasets[currentDatasetName].data) {
       let outputs = nn.predict(data.inputs);
       totalError += nn.calculateError(outputs, data.targets);
     }
 
     if (totalError / datasets[currentDatasetName].data.length < ERROR_THRESHOLD) {
-      stopTraining('Training complete! Network has learned the pattern.');
+      stopTraining('Training Complete! Network has learned the pattern.');
     }
   }
 
-  // Draw the network visualization with the user-selected input
   const data = datasets[currentDatasetName].data[currentInputIndex];
   const outputs = nn.predict(data.inputs);
   nnv.show(data.inputs, outputs, currentInputIndex);
   updateDataPanel(data.inputs, outputs, data.targets);
 }
 
-// Function to dynamically populate the dataset dropdown
 function populateDatasetSelect() {
+  datasetSelect.innerHTML = '';
   for (const key in datasets) {
     if (datasets.hasOwnProperty(key)) {
       const option = document.createElement('option');
-      option.value = key; // Use the key as the value
-      option.textContent = key; // Use the key as the display name
+      option.value = key;
+      option.textContent = key;
       datasetSelect.appendChild(option);
     }
   }
@@ -112,28 +134,44 @@ function populateDatasetSelect() {
 
 function stopTraining(message) {
   isTraining = false;
-  trainBtn.textContent = 'Train Network';
-  trainBtn.classList.remove('bg-red-600', 'hover:bg-red-700');
-  trainBtn.classList.add('bg-blue-600', 'hover:bg-blue-700');
+  buttonText.textContent = 'Start Training';
+  playIcon.classList.remove('hidden');
+  pauseIcon.classList.add('hidden');
+  trainBtn.classList.remove('danger-button');
+  trainBtn.classList.add('control-button');
+  trainingStatusElem.textContent = 'Ready';
+  trainingStatusElem.className = 'text-sm font-semibold text-green-400';
   datasetSelect.disabled = false;
   updateArchBtn.disabled = false;
   addLayerBtn.disabled = false;
   document.querySelectorAll('.remove-layer-btn').forEach(btn => btn.disabled = false);
   testDataSelect.disabled = false;
-  displayTrainingMessage(message);
+  displayTrainingMessage(message, 'success');
 }
 
-function displayTrainingMessage(message) {
-  trainingMessageElem.innerHTML = `<div class="bg-red-500 text-white p-2 rounded-md my-4">${message}</div>`;
+function displayTrainingMessage(message, type = 'info') {
+  const messageDiv = document.createElement('div');
+  messageDiv.className = `slide-in rounded-lg p-3 text-sm font-medium ${type === 'success' ? 'bg-green-500/20 text-green-400 border border-green-500/30' :
+    type === 'error' ? 'bg-red-500/20 text-red-400 border border-red-500/30' :
+      'bg-blue-500/20 text-blue-400 border border-blue-500/30'
+    }`;
+  messageDiv.textContent = message;
+  trainingMessageElem.innerHTML = '';
+  trainingMessageElem.appendChild(messageDiv);
+
   setTimeout(() => {
-    trainingMessageElem.innerHTML = '';
-  }, 2000);
+    messageDiv.remove();
+  }, 3000);
 }
 
 function setupNetwork(datasetName) {
   const config = datasets[datasetName].network;
-  nn = new NeuralNetwork(config.inputNodes, config.hiddenLayers, config.outputNodes, config.options);
-  nnv = new NNvisual(WIDTH / 2, HEIGHT / 2, 750, 550, nn, { drawmode: 'center' });
+  nn = new NeuralNetwork(config.inputNodes, config.hiddenLayers, config.outputNodes, {
+    ...config.options,
+    learning_rate: config.options.learning_rate || 0.01
+  });
+  const container = document.getElementById('p5-canvas-container');
+  nnv = new NNvisual(container.clientWidth / 2, container.clientHeight / 2, container.clientWidth - 50, container.clientHeight - 50, nn, { drawmode: 'center', weightThreshold: WEIGHT_THRESHOLD });
 }
 
 function handleDatasetChange(event) {
@@ -155,19 +193,17 @@ function handleDatasetChange(event) {
     updateNodeInfoPanel({ type: 'none' });
   } else {
     datasetSelect.value = currentDatasetName;
-    displayTrainingMessage('Please pause training before changing the dataset.');
+    displayTrainingMessage('Please pause training before changing the dataset.', 'error');
   }
 }
 
 function populateTestDataSelect() {
-  while (testDataSelect.firstChild) {
-    testDataSelect.removeChild(testDataSelect.firstChild);
-  }
+  testDataSelect.innerHTML = '';
   const currentData = datasets[currentDatasetName].data;
   currentData.forEach((data, index) => {
     const option = document.createElement('option');
     option.value = index;
-    option.textContent = `Test Case ${index + 1}: [${data.inputs}]`;
+    option.textContent = `Test Case ${index + 1}: [${data.inputs.join(', ')}]`;
     testDataSelect.appendChild(option);
   });
 }
@@ -175,9 +211,13 @@ function populateTestDataSelect() {
 function toggleTraining() {
   isTraining = !isTraining;
   if (isTraining) {
-    trainBtn.textContent = 'Pause Training';
-    trainBtn.classList.remove('bg-blue-600', 'hover:bg-blue-700');
-    trainBtn.classList.add('bg-red-600', 'hover:bg-red-700');
+    buttonText.textContent = 'Pause Training';
+    playIcon.classList.add('hidden');
+    pauseIcon.classList.remove('hidden');
+    trainBtn.classList.remove('control-button');
+    trainBtn.classList.add('danger-button');
+    trainingStatusElem.textContent = 'Training';
+    trainingStatusElem.className = 'text-sm font-semibold text-orange-400';
     datasetSelect.disabled = true;
     updateArchBtn.disabled = true;
     addLayerBtn.disabled = true;
@@ -190,12 +230,12 @@ function toggleTraining() {
 
 function createActivationFunctionSelect(layerType, defaultValue) {
   const select = document.createElement('select');
-  select.className = "rounded px-2 py-1 bg-gray-700 text-gray-200";
+  select.className = "custom-select w-full px-2 py-1 bg-neural-700/50 border border-neural-600/50 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-neural-100 text-xs md:text-sm";
 
   activationFunctionNames.forEach(name => {
     const option = document.createElement('option');
     option.value = name;
-    option.textContent = name;
+    option.textContent = name.charAt(0).toUpperCase() + name.slice(1);
     if (name === defaultValue) {
       option.selected = true;
     }
@@ -208,46 +248,58 @@ function addHiddenLayerControls(defaultNodes = 8, defaultActivation = 'tanh') {
   const layerCount = hiddenLayersContainer.children.length + 1;
   const div = document.createElement('div');
   div.classList.add('layer-input-group');
-  div.innerHTML = `
-        <label class="text-gray-400 text-sm">Hidden Layer ${layerCount}:</label>
-        <input type="number" value="${defaultNodes}" min="1" max="20" class="rounded px-2 py-1 bg-gray-700 text-gray-200 w-20">
-        <button class="remove-layer-btn bg-red-500 hover:bg-red-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm leading-none transition-colors duration-200">
-            &times;
-        </button>
-    `;
+
+  const label = document.createElement('label');
+  label.className = 'text-neural-400 text-xs md:text-sm font-medium';
+  label.textContent = `Layer ${layerCount}:`;
+
+  const input = document.createElement('input');
+  input.type = 'number';
+  input.value = defaultNodes;
+  input.min = '1';
+  input.max = '20';
+  input.className = 'px-2 py-1 bg-neural-700/50 border border-neural-600/50 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-neural-100 text-xs md:text-sm';
+
+  const removeBtn = document.createElement('button');
+  removeBtn.className = 'remove-layer-btn';
+  removeBtn.innerHTML = '×';
+  removeBtn.title = 'Remove layer';
+
+  div.appendChild(label);
+  div.appendChild(input);
+  div.appendChild(removeBtn);
   hiddenLayersContainer.appendChild(div);
 
   const selectGroup = document.createElement('div');
-  selectGroup.className = 'layer-input-group';
+  selectGroup.className = 'space-y-1';
   const selectLabel = document.createElement('label');
-  selectLabel.className = "text-gray-400 text-sm";
-  selectLabel.textContent = `Hidden Layer ${layerCount}:`;
+  selectLabel.className = "text-neural-400 text-xs font-medium";
+  selectLabel.textContent = `Layer ${layerCount} Activation:`;
   const select = createActivationFunctionSelect('hidden', defaultActivation);
   selectGroup.appendChild(selectLabel);
   selectGroup.appendChild(select);
 
-  // Find the last hidden layer activation dropdown and insert before it
   const outputLayerControl = document.getElementById('output-layer-activation');
   activationFunctionsContainer.insertBefore(selectGroup, outputLayerControl);
 
-  div.querySelector('.remove-layer-btn').addEventListener('click', () => {
+  removeBtn.addEventListener('click', () => {
     if (!isTraining) {
       div.remove();
       selectGroup.remove();
       updateLayerLabels();
     } else {
-      displayTrainingMessage('Cannot remove a layer while training.');
+      displayTrainingMessage('Cannot remove a layer while training.', 'error');
     }
   });
 }
 
 function addOutputLayerControls(defaultActivation = 'sigmoid') {
   const selectGroup = document.createElement('div');
-  selectGroup.id = 'output-layer-activation'; // Add a unique ID
-  selectGroup.classList.add('layer-input-group');
+  selectGroup.id = 'output-layer-activation';
+  selectGroup.classList.add('space-y-1');
   const selectLabel = document.createElement('label');
-  selectLabel.className = "text-gray-400 text-sm";
-  selectLabel.textContent = `Output Layer:`;
+  selectLabel.className = "text-neural-400 text-xs font-medium";
+  selectLabel.textContent = `Output Layer Activation:`;
   const select = createActivationFunctionSelect('output', defaultActivation);
   selectGroup.appendChild(selectLabel);
   selectGroup.appendChild(select);
@@ -257,19 +309,19 @@ function addOutputLayerControls(defaultActivation = 'sigmoid') {
 function updateLayerLabels() {
   const nodeLabels = hiddenLayersContainer.querySelectorAll('label');
   nodeLabels.forEach((label, index) => {
-    label.textContent = `Hidden Layer ${index + 1}:`;
+    label.textContent = `Layer ${index + 1}:`;
   });
   const activationLabels = activationFunctionsContainer.querySelectorAll('label');
   for (let i = 0; i < activationLabels.length; i++) {
-    if (activationLabels[i].textContent.startsWith('Hidden')) {
-      activationLabels[i].textContent = `Hidden Layer ${i + 1}:`;
+    if (activationLabels[i].textContent.startsWith('Layer')) {
+      activationLabels[i].textContent = `Layer ${i + 1} Activation:`;
     }
   }
 }
 
 function updateArchitecture() {
   if (isTraining) {
-    displayTrainingMessage('Cannot update network while training is in progress.');
+    displayTrainingMessage('Cannot update network while training is in progress.', 'error');
     return;
   }
 
@@ -277,27 +329,25 @@ function updateArchitecture() {
   const layerInputs = hiddenLayersContainer.querySelectorAll('input[type="number"]');
 
   if (layerInputs.length === 0) {
-    displayTrainingMessage('You must have at least one hidden layer.');
+    displayTrainingMessage('You must have at least one hidden layer.', 'error');
     return;
   }
 
   for (const input of layerInputs) {
     let parsed = parseInt(input.value);
     if (isNaN(parsed) || parsed < 1 || parsed > 20) {
-      parsed = constrain(parsed, 1, 20);
+      parsed = Math.max(1, Math.min(20, parsed || 8));
       input.value = parsed;
-      displayTrainingMessage('Node count was auto-adjusted to be between 1 and 20.');
+      displayTrainingMessage('Node count was auto-adjusted to be between 1 and 20.', 'info');
     }
     newHiddenLayers.push(parsed);
   }
 
   const newActivationFunctions = [];
   const activationSelects = activationFunctionsContainer.querySelectorAll('select');
-  // First, get the hidden layer activation functions
   for (let i = 0; i < layerInputs.length; i++) {
     newActivationFunctions.push(activationSelects[i].value);
   }
-  // Then, get the output layer activation function
   newActivationFunctions.push(activationSelects[activationSelects.length - 1].value);
 
   const currentDataset = datasets[currentDatasetName];
@@ -309,9 +359,10 @@ function updateArchitecture() {
   };
 
   nn = new NeuralNetwork(inputCount, newHiddenLayers, outputCount, options);
-  nnv = new NNvisual(WIDTH / 2, HEIGHT / 2, 750, 550, nn, { drawmode: 'center' });
+  const container = document.getElementById('p5-canvas-container');
+  nnv = new NNvisual(container.clientWidth / 2, container.clientHeight / 2, container.clientWidth - 50, container.clientHeight - 50, nn, { drawmode: 'center', weightThreshold: WEIGHT_THRESHOLD });
 
-  displayTrainingMessage('Network architecture updated successfully!');
+  displayTrainingMessage('Network architecture updated successfully!', 'success');
 }
 
 function mousePressed() {
@@ -322,49 +373,157 @@ function mousePressed() {
 }
 
 function updateDataPanel(inputs, outputs, targets) {
-  inputValElem.textContent = `[${inputs}]`;
-  predictedOutputValElem.textContent = `[${nf(outputs, 1, 2)}]`;
-  targetOutputValElem.textContent = `[${nf(targets, 1, 2)}]`;
+  inputValElem.textContent = `[${inputs.map(x => x.toFixed(1)).join(', ')}]`;
+  predictedOutputValElem.textContent = `[${outputs.map(x => x.toFixed(3)).join(', ')}]`;
+  targetOutputValElem.textContent = `[${targets.map(x => x.toFixed(1)).join(', ')}]`;
 }
 
 function updateNodeInfoPanel(nodeInfo) {
-  if (trainingMessageElem) {
-    trainingMessageElem.innerHTML = '';
-  }
-
   if (nodeInfo.type === 'none') {
-    selectedNodeInfoElem.innerHTML = `<p class="text-sm">Click a node to view its details.</p>`;
+    selectedNodeInfoElem.innerHTML = ` 
+                    <div class="flex flex-col items-center justify-center py-6 md:py-8 text-center"> 
+                        <svg class="w-8 md:w-12 h-8 md:h-12 text-neural-500 mb-2 md:mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"> 
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5M7.188 2.239l.777 2.897M5.136 7.965l-2.898-.777M13.95 4.05l-2.122 2.122m-5.657 5.656l-2.12 2.122"/> 
+                        </svg> 
+                        <p class="text-neural-400 text-xs md:text-sm">Click on any node to view detailed information</p> 
+                    </div> 
+                `;
   } else if (nodeInfo.type === 'node') {
-    let html = `<p><strong>Type:</strong> Node</p>`;
-    html += `<p><strong>Layer:</strong> ${nodeInfo.layerLabel}</p>`;
-    html += `<p><strong>Node Index:</strong> ${nodeInfo.index}</p>`;
+    let html = ` 
+                    <div class="space-y-2"> 
+                                                <div class="bg-neural-700/30 rounded-lg p-2"> 
+                            <h4 class="font-semibold text-blue-400 mb-1 text-sm">Node Info</h4> 
+                            <div class="grid grid-cols-2 gap-1 text-xs"> 
+                                <div><span class="text-neural-400">Type:</span></div> 
+                                <div class="text-neural-100">${nodeInfo.layerLabel}</div> 
+                                <div><span class="text-neural-400">Index:</span></div> 
+                                <div class="text-neural-100">${nodeInfo.index}</div> 
+                                <div><span class="text-neural-400">Value:</span></div> 
+                                <div class="text-green-400 font-mono">${nodeInfo.activationValue?.toFixed(3) || 'N/A'}</div> 
+                            </div> 
+                        </div> 
+                `;
 
     if (nodeInfo.layer > 0) {
-      html += `<h4 class="text-gray-400 mt-2">Inputs & Weights:</h4>`;
-      let sumTerm = [];
-      for (let i = 0; i < nodeInfo.inputDetails.length; i++) {
-        const detail = nodeInfo.inputDetails[i];
-        sumTerm.push(`[${detail.input} × ${detail.weight}]`);
+      // Summary statistics for weights 
+      const weights = nodeInfo.inputDetails?.map(d => parseFloat(d.weight)) || [];
+      const avgWeight = weights.length > 0 ? (weights.reduce((a, b) => a + b, 0) / weights.length).toFixed(3) : 'N/A';
+      const maxWeight = weights.length > 0 ? Math.max(...weights).toFixed(3) : 'N/A';
+      const minWeight = weights.length > 0 ? Math.min(...weights).toFixed(3) : 'N/A';
+      const strongConnections = weights.filter(w => Math.abs(w) > 0.5).length;
+
+      html += ` 
+                                                <div class="bg-neural-700/30 rounded-lg p-2"> 
+                            <h4 class="font-semibold text-purple-400 mb-1 text-sm">Computation</h4> 
+                            <div class="grid grid-cols-2 gap-1 text-xs"> 
+                                <div><span class="text-neural-400">Function:</span></div> 
+                                <div class="text-neutral-100 font-mono">${nodeInfo.activationFunctionName}</div> 
+                                <div><span class="text-neural-400">Sum:</span></div> 
+                                <div class="text-orange-400 font-mono">${nodeInfo.weightedSum || 'N/A'}</div> 
+                                <div><span class="text-neural-400">Bias:</span></div> 
+                                <div class="text-pink-400 font-mono">${nodeInfo.biasValue || 'N/A'}</div> 
+                            </div> 
+                        </div> 
+
+                                                <div class="bg-neural-700/30 rounded-lg p-2"> 
+                            <div class="flex items-center justify-between mb-1"> 
+                                <h4 class="font-semibold text-cyan-400 text-sm">Weight Stats</h4> 
+                                <button onclick="toggleWeightDetails()" class="text-xs text-neural-400 hover:text-cyan-400 transition-colors"> 
+                                    <span id="weight-toggle-text">Show All</span> 
+                                </button> 
+                            </div> 
+                            <div class="grid grid-cols-2 gap-1 text-xs mb-2"> 
+                                <div><span class="text-neural-400">Inputs:</span></div> 
+                                <div class="text-neutral-100">${weights.length}</div> 
+                                <div><span class="text-neural-400">Strong:</span></div> 
+                                <div class="text-yellow-400">${strongConnections}</div> 
+                                <div><span class="text-neural-400">Avg:</span></div> 
+                                <div class="text-neutral-100 font-mono">${avgWeight}</div> 
+                                <div><span class="text-neural-400">Range:</span></div> 
+                                <div class="text-neutral-100 font-mono">${minWeight} to ${maxWeight}</div> 
+                            </div> 
+                             
+                                                        <div id="weight-details" class="hidden"> 
+                                <div class="border-t border-neural-600 pt-1 mt-1 max-h-24 overflow-y-auto"> 
+                    `;
+
+      if (nodeInfo.inputDetails && nodeInfo.inputDetails.length > 0) {
+        // Show only top 5 strongest connections by default 
+        const sortedWeights = nodeInfo.inputDetails
+          .map((detail, i) => ({ ...detail, index: i, absWeight: Math.abs(parseFloat(detail.weight)) }))
+          .sort((a, b) => b.absWeight - a.absWeight);
+
+        const topWeights = sortedWeights.slice(0, Math.min(5, sortedWeights.length));
+
+        topWeights.forEach((detail) => {
+          const isStrong = detail.absWeight > 0.5;
+          html += ` 
+                                <div class="flex justify-between text-xs py-0.5 ${isStrong ? 'text-yellow-400' : ''}"> 
+                                    <span class="text-neural-400">In${detail.index}:</span> 
+                                    <span class="font-mono">${detail.input} × ${detail.weight}</span> 
+                                </div> 
+                            `;
+        });
+
+        if (sortedWeights.length > 5) {
+          html += `<div class="text-xs text-neural-500 text-center pt-1">... ${sortedWeights.length - 5} more</div>`;
+        }
       }
-      html += `<p>${sumTerm.join(' + ')} + Bias: [${nodeInfo.biasValue}]</p>`;
-      html += `<hr class="border-t-2 border-dashed border-gray-600 my-2">`;
-      html += `<p><strong>Weighted Sum:</strong> ${nodeInfo.weightedSum}</p>`;
-      html += `<p><strong>Activation Function:</strong> ${nodeInfo.activationFunctionName}</p>`;
-      html += `<p><strong>Final Activation:</strong> ${nf(nodeInfo.activationValue, 1, 4)}</p>`;
-    } else {
-      html += `<p><strong>Final Activation:</strong> ${nf(nodeInfo.activationValue, 1, 4)}</p>`;
+
+      html += ` 
+                                </div> 
+                            </div> 
+                        </div> 
+                    `;
     }
+
+    html += `</div>`;
     selectedNodeInfoElem.innerHTML = html;
   } else if (nodeInfo.type === 'bias') {
-    let html = `<p><strong>Type:</strong> Bias</p>`;
-    html += `<p><strong>Bias Value:</strong> ${nodeInfo.biasValue}</p>`;
-    html += `<p><strong>Connected to Layer:</strong> ${nodeInfo.layer}</p>`;
-    html += `<h4 class="text-gray-400 mt-2">Bias Weights:</h4>`;
-    html += `<ul class="list-disc list-inside">`;
-    for (const detail of nodeInfo.biasWeights) {
-      html += `<li>Node ${detail.node}: ${detail.weight}</li>`;
+    let html = `
+      <div class="space-y-2">
+        <div class="bg-neural-700/30 rounded-lg p-2">
+          <h4 class="font-semibold text-yellow-400 mb-1 text-sm">Bias Node</h4>
+          <div class="grid grid-cols-2 gap-1 text-xs">
+            <div><span class="text-neural-400">Value:</span></div>
+            <div class="text-neutral-100 font-mono">${nodeInfo.biasValue}</div>
+            <div><span class="text-neural-400">Layer:</span></div>
+            <div class="text-neutral-100">${nodeInfo.layer}</div>
+          </div>
+        </div>
+    `;
+    if (nodeInfo.biasWeights && nodeInfo.biasWeights.length > 0) {
+      html += `<div class="bg-neural-700/30 rounded-lg p-2">
+        <h4 class="font-semibold text-orange-400 mb-1 text-sm">Connections (${nodeInfo.biasWeights.length})</h4>
+        <div class="max-h-20 overflow-y-auto space-y-0.5">
+      `;
+      nodeInfo.biasWeights.forEach((detail) => {
+        const isStrong = Math.abs(parseFloat(detail.weight)) > 0.5;
+        html += `
+          <div class="flex justify-between text-xs ${isStrong ? 'text-yellow-400' : ''}">
+            <span class="text-neural-400">Node ${detail.node}:</span>
+            <span class="font-mono">${detail.weight}</span>
+          </div>
+        `;
+      });
+      html += `</div></div>`;
     }
-    html += `</ul>`;
+    html += `</div>`;
     selectedNodeInfoElem.innerHTML = html;
+  }
+}
+
+// Toggle function for weight details 
+window.toggleWeightDetails = function () {
+  const details = document.getElementById('weight-details');
+  const toggleText = document.getElementById('weight-toggle-text');
+  if (details && toggleText) {
+    if (details.classList.contains('hidden')) {
+      details.classList.remove('hidden');
+      toggleText.textContent = 'Hide';
+    } else {
+      details.classList.add('hidden');
+      toggleText.textContent = 'Show All';
+    }
   }
 }
