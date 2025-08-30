@@ -29,6 +29,18 @@ class NNvisual {
         this.activations = null;
         this.nodePositions = this.calculateLayerPositions();
         this.biasNodePositions = this.calculateBiasPositions();
+
+        // Define colors here to be accessible throughout the class
+        this.CONNECTION_POSITIVE_COLOR = color(150, 250, 150, 150);
+        this.CONNECTION_NEGATIVE_COLOR = color(250, 150, 150, 150);
+        this.CONNECTION_NEUTRAL_COLOR = color(50, 50, 50, 80);
+        this.SLOW_PARTICLE_COLOR = color(100, 100, 255, 180);
+        this.FAST_PARTICLE_COLOR = color(255, 100, 100, 200);
+        this.NEUTRAL_PARTICLE_COLOR = color(255, 255, 255, 150);
+        this.NEUTRAL_COLOR = color(150, 150, 150);
+        this.HEATMAP_POSITIVE_COLOR = color(255, 100, 100);
+        this.HEATMAP_NEGATIVE_COLOR = color(100, 100, 255);
+        this.TEXT_COLOR = color(220);
     }
 
     /**
@@ -40,7 +52,7 @@ class NNvisual {
         const maxNodesInLayer = Math.max(...layerSizes);
         const maxRadius = 30;
         this.r = min(maxRadius, this.h / (maxNodesInLayer * 4));
-        this.NODE_HEIGHT = this.r * 2;
+        this.NODE_HEIGHT = this.r * 1.5;
         this.NODE_GAP = this.r * 1.5;
     }
 
@@ -55,6 +67,27 @@ class NNvisual {
         const numLayers = layerSizes.length;
         const layerXs = this.calculateLayerXPositions(numLayers);
 
+        // Calculate the maximum height required for all layers (not including bias nodes yet)
+        let maxLayerHeight = 0;
+        for (let l = 0; l < numLayers; l++) {
+            const numNodes = layerSizes[l];
+            let layerHeight = 0;
+            if (numNodes > 20) {
+                const numRows = ceil(numNodes / ceil(sqrt(numNodes)));
+                layerHeight = (numRows * this.NODE_HEIGHT) + ((numRows - 1) * this.NODE_GAP);
+            } else {
+                layerHeight = (numNodes * this.NODE_HEIGHT) + ((numNodes - 1) * this.NODE_GAP);
+            }
+            maxLayerHeight = max(maxLayerHeight, layerHeight);
+        }
+
+        // Calculate the total height needed for both the network and the biases
+        const biasVerticalSpace = (this.NODE_HEIGHT + this.NODE_GAP) * (numLayers > 1 ? 1 : 0);
+        const totalHeightWithBias = maxLayerHeight + biasVerticalSpace;
+
+        // Adjust the overall start position to center the entire network including biases
+        const startY = this.y + (this.h - totalHeightWithBias) / 2;
+
         for (let l = 0; l < numLayers; l++) {
             const numNodes = layerSizes[l];
             const layerX = layerXs[l];
@@ -62,9 +95,9 @@ class NNvisual {
             const GRID_THRESHOLD = 20;
 
             if (numNodes > GRID_THRESHOLD) {
-                this.calculateGridPositions(numNodes, layerX, currentLayerPositions);
+                this.calculateGridPositions(numNodes, layerX, currentLayerPositions, startY, maxLayerHeight);
             } else {
-                this.calculateColumnPositions(numNodes, layerX, currentLayerPositions);
+                this.calculateColumnPositions(numNodes, layerX, currentLayerPositions, startY, maxLayerHeight);
             }
             nodePositions.push(currentLayerPositions);
         }
@@ -94,20 +127,24 @@ class NNvisual {
      * @param {number} numNodes - The number of nodes in the layer.
      * @param {number} layerX - The horizontal position of the layer.
      * @param {Array<p5.Vector>} positionsArray - The array to store calculated positions.
+     * @param {number} startY - The vertical start position for the whole network.
+     * @param {number} maxLayerHeight - The maximum height of any layer.
      */
-    calculateGridPositions(numNodes, layerX, positionsArray) {
+    calculateGridPositions(numNodes, layerX, positionsArray, startY, maxLayerHeight) {
         const numCols = ceil(sqrt(numNodes));
         const numRows = ceil(numNodes / numCols);
         const totalGridWidth = (numCols * this.NODE_HEIGHT) + ((numCols - 1) * this.NODE_GAP);
         const totalGridHeight = (numRows * this.NODE_HEIGHT) + ((numRows - 1) * this.NODE_GAP);
-        const startY = this.y + (this.h - totalGridHeight) / 2;
+
+        // Center the grid vertically within the max layer height
+        const gridStartY = startY + (maxLayerHeight - totalGridHeight) / 2;
         const gridStartX = layerX - totalGridWidth / 2;
 
         for (let i = 0; i < numNodes; i++) {
             const row = floor(i / numCols);
             const col = i % numCols;
             const nodeX = gridStartX + col * (this.NODE_HEIGHT + this.NODE_GAP);
-            const nodeY = startY + row * (this.NODE_HEIGHT + this.NODE_GAP);
+            const nodeY = gridStartY + row * (this.NODE_HEIGHT + this.NODE_GAP);
             positionsArray.push(createVector(nodeX, nodeY));
         }
     }
@@ -117,13 +154,17 @@ class NNvisual {
      * @param {number} numNodes - The number of nodes in the layer.
      * @param {number} layerX - The horizontal position of the layer.
      * @param {Array<p5.Vector>} positionsArray - The array to store calculated positions.
+     * @param {number} startY - The vertical start position for the whole network.
+     * @param {number} maxLayerHeight - The maximum height of any layer.
      */
-    calculateColumnPositions(numNodes, layerX, positionsArray) {
+    calculateColumnPositions(numNodes, layerX, positionsArray, startY, maxLayerHeight) {
         const totalRequiredHeight = (numNodes * this.NODE_HEIGHT) + ((numNodes - 1) * this.NODE_GAP);
-        const startY = this.y + (this.h - totalRequiredHeight) / 2;
+
+        // Center the column vertically within the max layer height
+        const columnStartY = startY + (maxLayerHeight - totalRequiredHeight) / 2;
 
         for (let i = 0; i < numNodes; i++) {
-            positionsArray.push(createVector(layerX, startY + i * (this.NODE_HEIGHT + this.NODE_GAP)));
+            positionsArray.push(createVector(layerX, columnStartY + i * (this.NODE_HEIGHT + this.NODE_GAP)));
         }
     }
 
@@ -250,15 +291,12 @@ class NNvisual {
     }
 
     drawConnectionAndParticle(startPos, endPos, weight, activationStrength) {
-        const CONNECTION_POSITIVE_COLOR = color(150, 250, 150, 150);
-        const CONNECTION_NEGATIVE_COLOR = color(250, 150, 150, 150);
-        const CONNECTION_NEUTRAL_COLOR = color(50, 50, 50, 80);
 
         const clampedWeight = constrain(abs(weight), 0, 1);
         const strokeW = map(clampedWeight, 0, 1, 1, 3);
         const connectionColor = weight > 0 ?
-            lerpColor(CONNECTION_NEUTRAL_COLOR, CONNECTION_POSITIVE_COLOR, map(weight, 0, 1, 0, 1)) :
-            lerpColor(CONNECTION_NEUTRAL_COLOR, CONNECTION_NEGATIVE_COLOR, map(abs(weight), 0, 1, 0, 1));
+            lerpColor(this.CONNECTION_NEUTRAL_COLOR, this.CONNECTION_POSITIVE_COLOR, map(weight, 0, 1, 0, 1)) :
+            lerpColor(this.CONNECTION_NEUTRAL_COLOR, this.CONNECTION_NEGATIVE_COLOR, map(abs(weight), 0, 1, 0, 1));
 
         strokeWeight(strokeW);
         stroke(connectionColor);
@@ -281,17 +319,13 @@ class NNvisual {
 
         noStroke();
 
-        const SLOW_PARTICLE_COLOR = color(100, 100, 255, 180);
-        const FAST_PARTICLE_COLOR = color(255, 100, 100, 200);
-        const NEUTRAL_PARTICLE_COLOR = color(255, 255, 255, 150);
-
         const speedNormalized = map(particleSpeed, MIN_SPEED, MAX_SPEED, 0, 1);
         let particleColor;
 
         if (speedNormalized < 0.5) {
-            particleColor = lerpColor(NEUTRAL_PARTICLE_COLOR, SLOW_PARTICLE_COLOR, map(speedNormalized, 0, 0.5, 0, 1));
+            particleColor = lerpColor(this.NEUTRAL_PARTICLE_COLOR, this.SLOW_PARTICLE_COLOR, map(speedNormalized, 0, 0.5, 0, 1));
         } else {
-            particleColor = lerpColor(NEUTRAL_PARTICLE_COLOR, FAST_PARTICLE_COLOR, map(speedNormalized, 0.5, 1, 0, 1));
+            particleColor = lerpColor(this.NEUTRAL_PARTICLE_COLOR, this.FAST_PARTICLE_COLOR, map(speedNormalized, 0.5, 1, 0, 1));
         }
 
         particleColor.setAlpha(map(abs(activationStrength), 0, 1, 50, 255));
@@ -306,11 +340,6 @@ class NNvisual {
     }
 
     drawNeuralNodes() {
-        const NEUTRAL_COLOR = color(150, 150, 150);
-        const HEATMAP_POSITIVE_COLOR = color(255, 100, 100);
-        const HEATMAP_NEGATIVE_COLOR = color(100, 100, 255);
-        const TEXT_COLOR = color(220);
-
         for (let l = 0; l < this.nodePositions.length; l++) {
             const layerNodes = this.nodePositions[l];
             for (let i = 0; i < layerNodes.length; i++) {
@@ -319,9 +348,9 @@ class NNvisual {
                 let nodeColor;
 
                 if (activationValue > 0) {
-                    nodeColor = lerpColor(NEUTRAL_COLOR, HEATMAP_POSITIVE_COLOR, map(activationValue, 0, 1, 0, 1));
+                    nodeColor = lerpColor(this.NEUTRAL_COLOR, this.HEATMAP_POSITIVE_COLOR, map(activationValue, 0, 1, 0, 1));
                 } else {
-                    nodeColor = lerpColor(NEUTRAL_COLOR, HEATMAP_NEGATIVE_COLOR, map(abs(activationValue), 0, 1, 0, 1));
+                    nodeColor = lerpColor(this.NEUTRAL_COLOR, this.HEATMAP_NEGATIVE_COLOR, map(abs(activationValue), 0, 1, 0, 1));
                 }
 
                 noStroke();
@@ -332,7 +361,7 @@ class NNvisual {
                     this.highlightNode(pos);
                 }
 
-                fill(TEXT_COLOR);
+                fill(this.TEXT_COLOR);
                 textSize(this.r * 0.75);
                 stroke(0);
                 strokeWeight(this.r * 0.2);
@@ -343,14 +372,11 @@ class NNvisual {
     }
 
     drawBiasNodes() {
-        const NEUTRAL_COLOR = color(150, 150, 150);
-        const TEXT_COLOR = color(220);
-
         for (let l = 0; l < this.biasNodePositions.length; l++) {
             const pos = this.biasNodePositions[l];
             const biasValue = this.nn.biases[l].data[0][0];
 
-            fill(NEUTRAL_COLOR);
+            fill(this.NEUTRAL_COLOR);
             stroke(biasValue > 0 ? color(100, 200, 100) : color(200, 100, 100));
             strokeWeight(3);
             rectMode(CENTER);
@@ -360,7 +386,7 @@ class NNvisual {
                 this.highlightBiasNode(pos);
             }
 
-            fill(TEXT_COLOR);
+            fill(this.TEXT_COLOR);
             noStroke();
             textSize(this.r * 0.75);
             textAlign(CENTER, CENTER);

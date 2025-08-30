@@ -9,8 +9,10 @@ let isTraining = false;
 let epochsPerFrame = 100;
 
 let inputValElem, predictedOutputValElem, targetOutputValElem, selectedNodeInfoElem, trainingMessageElem;
-let datasetSelect, trainBtn, epochsSlider, epochsVal, hiddenLayersContainer, addLayerBtn, updateArchBtn;
+let datasetSelect, trainBtn, epochsSlider, epochsVal, hiddenLayersContainer, addLayerBtn, updateArchBtn, activationFunctionsContainer;
 let testDataSelect;
+
+const activationFunctionNames = ['sigmoid', 'relu', 'tanh', 'identity', 'softmax'];
 
 function preload() {
   datasets = loadJSON('trainingData.json');
@@ -34,6 +36,7 @@ function setup() {
   updateArchBtn = document.getElementById('update-arch-btn');
   trainingMessageElem = document.getElementById('training-message-container');
   testDataSelect = document.getElementById('test-data-select');
+  activationFunctionsContainer = document.getElementById('activation-functions-container');
 
   trainBtn.textContent = 'Train Network';
 
@@ -44,7 +47,7 @@ function setup() {
     epochsPerFrame = parseInt(epochsSlider.value);
     epochsVal.textContent = epochsPerFrame;
   });
-  addLayerBtn.addEventListener('click', addHiddenLayerInput);
+  addLayerBtn.addEventListener('click', addHiddenLayerControls);
   updateArchBtn.addEventListener('click', updateArchitecture);
   testDataSelect.addEventListener('change', (event) => {
     currentInputIndex = event.target.value;
@@ -59,7 +62,9 @@ function setup() {
 
   // Initialize with default layers
   const defaultLayers = datasets[currentDatasetName].network.hiddenLayers;
-  defaultLayers.forEach(numNodes => addHiddenLayerInput(numNodes));
+  const defaultActivations = datasets[currentDatasetName].network.options.activationFunctions;
+  defaultLayers.forEach((numNodes, index) => addHiddenLayerControls(numNodes, defaultActivations[index]));
+  addOutputLayerControls(defaultActivations[defaultActivations.length - 1]);
   setupNetwork(currentDatasetName);
   populateTestDataSelect();
 }
@@ -122,7 +127,7 @@ function displayTrainingMessage(message) {
   trainingMessageElem.innerHTML = `<div class="bg-red-500 text-white p-2 rounded-md my-4">${message}</div>`;
   setTimeout(() => {
     trainingMessageElem.innerHTML = '';
-  }, 5000);
+  }, 2000);
 }
 
 function setupNetwork(datasetName) {
@@ -137,8 +142,13 @@ function handleDatasetChange(event) {
     while (hiddenLayersContainer.firstChild) {
       hiddenLayersContainer.removeChild(hiddenLayersContainer.firstChild);
     }
+    while (activationFunctionsContainer.firstChild) {
+      activationFunctionsContainer.removeChild(activationFunctionsContainer.firstChild);
+    }
     const defaultLayers = datasets[currentDatasetName].network.hiddenLayers;
-    defaultLayers.forEach(numNodes => addHiddenLayerInput(numNodes));
+    const defaultActivations = datasets[currentDatasetName].network.options.activationFunctions;
+    defaultLayers.forEach((numNodes, index) => addHiddenLayerControls(numNodes, defaultActivations[index]));
+    addOutputLayerControls(defaultActivations[defaultActivations.length - 1]);
     setupNetwork(currentDatasetName);
     currentInputIndex = 0;
     populateTestDataSelect();
@@ -178,22 +188,52 @@ function toggleTraining() {
   }
 }
 
-function addHiddenLayerInput(defaultValue = 8) {
+function createActivationFunctionSelect(layerType, defaultValue) {
+  const select = document.createElement('select');
+  select.className = "rounded px-2 py-1 bg-gray-700 text-gray-200";
+
+  activationFunctionNames.forEach(name => {
+    const option = document.createElement('option');
+    option.value = name;
+    option.textContent = name;
+    if (name === defaultValue) {
+      option.selected = true;
+    }
+    select.appendChild(option);
+  });
+  return select;
+}
+
+function addHiddenLayerControls(defaultNodes = 8, defaultActivation = 'tanh') {
   const layerCount = hiddenLayersContainer.children.length + 1;
   const div = document.createElement('div');
   div.classList.add('layer-input-group');
   div.innerHTML = `
-        <label class="text-gray-400 text-sm">Layer ${layerCount}:</label>
-        <input type="number" value="${defaultValue}" min="1" max="20" class="rounded px-2 py-1 bg-gray-700 text-gray-200 w-20">
+        <label class="text-gray-400 text-sm">Hidden Layer ${layerCount}:</label>
+        <input type="number" value="${defaultNodes}" min="1" max="20" class="rounded px-2 py-1 bg-gray-700 text-gray-200 w-20">
         <button class="remove-layer-btn bg-red-500 hover:bg-red-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm leading-none transition-colors duration-200">
             &times;
         </button>
     `;
   hiddenLayersContainer.appendChild(div);
 
+  const selectGroup = document.createElement('div');
+  selectGroup.className = 'layer-input-group';
+  const selectLabel = document.createElement('label');
+  selectLabel.className = "text-gray-400 text-sm";
+  selectLabel.textContent = `Hidden Layer ${layerCount}:`;
+  const select = createActivationFunctionSelect('hidden', defaultActivation);
+  selectGroup.appendChild(selectLabel);
+  selectGroup.appendChild(select);
+
+  // Find the last hidden layer activation dropdown and insert before it
+  const outputLayerControl = document.getElementById('output-layer-activation');
+  activationFunctionsContainer.insertBefore(selectGroup, outputLayerControl);
+
   div.querySelector('.remove-layer-btn').addEventListener('click', () => {
     if (!isTraining) {
       div.remove();
+      selectGroup.remove();
       updateLayerLabels();
     } else {
       displayTrainingMessage('Cannot remove a layer while training.');
@@ -201,11 +241,30 @@ function addHiddenLayerInput(defaultValue = 8) {
   });
 }
 
+function addOutputLayerControls(defaultActivation = 'sigmoid') {
+  const selectGroup = document.createElement('div');
+  selectGroup.id = 'output-layer-activation'; // Add a unique ID
+  selectGroup.classList.add('layer-input-group');
+  const selectLabel = document.createElement('label');
+  selectLabel.className = "text-gray-400 text-sm";
+  selectLabel.textContent = `Output Layer:`;
+  const select = createActivationFunctionSelect('output', defaultActivation);
+  selectGroup.appendChild(selectLabel);
+  selectGroup.appendChild(select);
+  activationFunctionsContainer.appendChild(selectGroup);
+}
+
 function updateLayerLabels() {
-  const inputs = hiddenLayersContainer.querySelectorAll('label');
-  inputs.forEach((label, index) => {
-    label.textContent = `Layer ${index + 1}:`;
+  const nodeLabels = hiddenLayersContainer.querySelectorAll('label');
+  nodeLabels.forEach((label, index) => {
+    label.textContent = `Hidden Layer ${index + 1}:`;
   });
+  const activationLabels = activationFunctionsContainer.querySelectorAll('label');
+  for (let i = 0; i < activationLabels.length; i++) {
+    if (activationLabels[i].textContent.startsWith('Hidden')) {
+      activationLabels[i].textContent = `Hidden Layer ${i + 1}:`;
+    }
+  }
 }
 
 function updateArchitecture() {
@@ -232,10 +291,22 @@ function updateArchitecture() {
     newHiddenLayers.push(parsed);
   }
 
+  const newActivationFunctions = [];
+  const activationSelects = activationFunctionsContainer.querySelectorAll('select');
+  // First, get the hidden layer activation functions
+  for (let i = 0; i < layerInputs.length; i++) {
+    newActivationFunctions.push(activationSelects[i].value);
+  }
+  // Then, get the output layer activation function
+  newActivationFunctions.push(activationSelects[activationSelects.length - 1].value);
+
   const currentDataset = datasets[currentDatasetName];
   const inputCount = currentDataset.network.inputNodes;
   const outputCount = currentDataset.network.outputNodes;
-  const options = currentDataset.network.options;
+  const options = {
+    ...currentDataset.network.options,
+    activationFunctions: newActivationFunctions
+  };
 
   nn = new NeuralNetwork(inputCount, newHiddenLayers, outputCount, options);
   nnv = new NNvisual(WIDTH / 2, HEIGHT / 2, 750, 550, nn, { drawmode: 'center' });
