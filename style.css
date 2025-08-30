@@ -1,16 +1,58 @@
-html, body {
-  margin: 0;
-  padding: 0;
-  height: 100%;
-  width: 100%;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  background-color: #000
+/* Basic reset for consistent styling across browsers */
+body {
+    margin: 0;
+    padding: 0;
+    height: 100vh;
+    width: 100vw;
+    background-color: #0d1117; /* A professional dark background color */
+    color: #c9d1d9; /* Light text color for contrast */
+    font-family: 'Roboto', sans-serif;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    overflow: hidden; /* Prevent scrollbars */
 }
+
+/* Header styling */
+.app-header {
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+.app-header h1 {
+    font-size: 2.5em;
+    font-weight: 700;
+    margin: 0;
+}
+
+.app-header p {
+    font-size: 1.2em;
+    color: #8b949e;
+}
+
+/* Canvas container for centering and styling */
+.canvas-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    border: 3px solid #2f363d; /* Subtle border color */
+    border-radius: 10px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2); /* Soft shadow for depth */
+}
+
+/* P5.js canvas specific styling */
 canvas {
-  display: flex;
-  margin: auto;
-  border: 3px solid white;
-  border-radius: 10px;
+    display: block; /* Removes the extra space below the canvas */
+}
+
+/* Responsive design for smaller screens */
+@media (max-width: 768px) {
+    .app-header h1 {
+        font-size: 1.8em;
+    }
+
+    .app-header p {
+        font-size: 1em;
+    }
 }

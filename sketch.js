@@ -88,9 +88,9 @@ function setup() {
   createCanvas(WIDTH, HEIGHT);
   // Assume NeuralNetwork class is loaded
   frameRate(60)
-  nn = new NeuralNetwork(8, [16, 8], 3, { activationFunctions: ['tanh', 'tanh', 'tanh', 'tanh', 'sigmoid'], debug: true });
+  nn = new NeuralNetwork(8, [8, 8], 3, { activationFunctions: ['tanh', 'tanh', 'tanh', 'tanh', 'sigmoid'], debug: true });
   // Corrected: Removed the 'r' argument, as it's now calculated dynamically.
-  nnv = new NNvisual(x, y, w, h, nn,{ drawmode: 'center', showinfobox: true });
+  nnv = new NNvisual(x, y, w, h, nn,{ drawmode: 'center', showinfobox: false });
   //frameRate(30); // Slow down the frame rate for better visualization of training
 }
 
@@ -109,15 +109,15 @@ function draw() {
   let outputs = nn.predict(visualizationInput);
 
   // Show the neural network visualization
-  nnv.show(visualizationInput, outputs);
+  nnv.show(visualizationInput, outputs,currentInputIndex);
 
   // Display the current outputs and targets for a quick check
   fill(255);
   textSize(16);
-  textAlign(LEFT);
-  text(`Input: [${visualizationInput}]`, 20, HEIGHT - 60);
-  text(`Predicted Output: [${nf(outputs, 1, 2)}]`, 20, HEIGHT - 40);
-  text(`Target Output: [${nf(visualizationTarget, 1, 2)}]`, 20, HEIGHT - 20);
+  textAlign(RIGHT);
+  text(`Input: [${visualizationInput}]`,750, 60);
+  text(`Predicted Output: [${nf(outputs, 1, 2)}]`, 750, 80);
+  text(`Target Output: [${nf(visualizationTarget, 1, 2)}]`, 750, 100);
 }
 function keyPressed() {
   // Check if the pressed key is the spacebar
