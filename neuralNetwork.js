@@ -203,7 +203,16 @@ class NeuralNetwork {
         }
         return current.toArray();
     }
-
+    calculateError(outputs, targets) {
+        if (!Array.isArray(outputs) || !Array.isArray(targets) || outputs.length !== targets.length) {
+            throw new Error("calculateError: outputs and targets must be arrays of the same length.");
+        }
+        let sumSquaredError = 0;
+        for (let i = 0; i < outputs.length; i++) {
+            sumSquaredError += Math.pow(targets[i] - outputs[i], 2);
+        }
+        return sumSquaredError / outputs.length; // Return average error
+    }
 
     train(input_array, target_array) {
         if (!Array.isArray(input_array) || !Array.isArray(target_array)) {

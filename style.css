@@ -1,58 +1,76 @@
-/* Basic reset for consistent styling across browsers */
 body {
+    font-family: 'Inter', sans-serif;
     margin: 0;
     padding: 0;
     height: 100vh;
     width: 100vw;
-    background-color: #0d1117; /* A professional dark background color */
-    color: #c9d1d9; /* Light text color for contrast */
-    font-family: 'Roboto', sans-serif;
+    background-color: #0d1117;
+    color: #e2e8f0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    overflow: hidden;
+}
+
+#app-container {
     display: flex;
     flex-direction: column;
-    justify-content: center;
     align-items: center;
-    overflow: hidden; /* Prevent scrollbars */
+    gap: 2rem;
+    max-width: 95%;
+    padding: 1rem;
 }
 
-/* Header styling */
-.app-header {
-    text-align: center;
-    margin-bottom: 20px;
-}
-
-.app-header h1 {
-    font-size: 2.5em;
-    font-weight: 700;
-    margin: 0;
-}
-
-.app-header p {
-    font-size: 1.2em;
-    color: #8b949e;
-}
-
-/* Canvas container for centering and styling */
-.canvas-container {
+#visualization-container {
     display: flex;
+    gap: 2rem;
+    flex-wrap: wrap;
     justify-content: center;
-    align-items: center;
-    border: 3px solid #2f363d; /* Subtle border color */
-    border-radius: 10px;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2); /* Soft shadow for depth */
 }
 
-/* P5.js canvas specific styling */
 canvas {
-    display: block; /* Removes the extra space below the canvas */
+    border: 3px solid #2f363d;
+    border-radius: 10px;
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.3);
 }
 
-/* Responsive design for smaller screens */
-@media (max-width: 768px) {
-    .app-header h1 {
-        font-size: 1.8em;
-    }
+#data-panel {
+    width: 100%;
+    max-width: 400px;
+    background-color: #1a202c;
+    border-radius: 10px;
+    padding: 1.5rem;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
 
-    .app-header p {
-        font-size: 1em;
+.data-card {
+    background-color: #2d3748;
+    border-radius: 8px;
+    padding: 1rem;
+}
+
+table {
+    width: 100%;
+    text-align: left;
+    border-collapse: collapse;
+}
+
+th, td {
+    padding: 0.75rem;
+    border-bottom: 1px solid #4a5568;
+}
+
+th {
+    font-weight: 700;
+    color: #a0aec0;
+}
+
+@media (min-width: 1024px) {
+    #app-container {
+        flex-direction: row;
+        align-items: flex-start;
     }
 }

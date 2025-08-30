@@ -1,29 +1,177 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Neural Network Visualization</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap');
 
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
+        body {
+            font-family: 'Inter', sans-serif;
+            margin: 0;
+            padding: 0;
+            height: 100vh;
+            width: 100vw;
+            background-color: #0d1117;
+            color: #e2e8f0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+        }
 
+        #app-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 2rem;
+            max-width: 95%;
+            padding: 1rem;
+        }
+
+        #visualization-container {
+            display: flex;
+            gap: 2rem;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        canvas {
+            border: 3px solid #2f363d;
+            border-radius: 10px;
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.3);
+        }
+
+        #data-panel {
+            width: 100%;
+            max-width: 400px;
+            background-color: #1a202c;
+            border-radius: 10px;
+            padding: 1.5rem;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        .data-card {
+            background-color: #2d3748;
+            border-radius: 8px;
+            padding: 1rem;
+        }
+
+        table {
+            width: 100%;
+            text-align: left;
+            border-collapse: collapse;
+            table-layout: fixed;
+        }
+        
+        .scroll-x {
+            max-width: 100%;
+            overflow-x: auto;
+            white-space: nowrap;
+        }
+
+        th, td {
+            padding: 0.75rem;
+            border-bottom: 1px solid #4a5568;
+        }
+
+        th {
+            font-weight: 700;
+            color: #a0aec0;
+        }
+        
+        @media (min-width: 1024px) {
+            #app-container {
+                flex-direction: row;
+                align-items: flex-start;
+            }
+        }
+    </style>
+</head>
+
+<body class="bg-gray-900 text-gray-200">
+    <div id="app-container">
+        <div class="flex flex-col items-center">
+            <h1 class="text-3xl font-bold mb-4">Neural Network Visualization</h1>
+            <p class="text-sm text-gray-400 mb-6">A live view of a neural network learning to encode data.</p>
+            
+            <div class="mb-4 flex items-center gap-4">
+                <label for="epochs-slider" class="text-gray-400">Epochs per Frame:</label>
+                <input type="range" id="epochs-slider" min="1" max="500" value="100" class="w-40">
+                <span id="epochs-val" class="text-white font-bold">100</span>
+            </div>
+
+            <div class="mb-4 flex items-center gap-4">
+                <label for="dataset-select" class="text-gray-400">Select Dataset:</label>
+                <select id="dataset-select" class="rounded px-2 py-1 bg-gray-700 text-gray-200">
+                    <option value="encoder3bit">3-Bit Encoder</option>
+                    <option value="decoder3bit">3-Bit Decoder</option>
+                    <option value="andGate">AND Gate</option>
+                    <option value="xorGate">XOR Gate</option>
+                </select>
+                <button id="play-pause-btn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-1 px-4 rounded transition-colors duration-200">
+                    Train Network
+                </button>
+            </div>
+
+            <div id="p5-canvas-container" class="rounded-lg shadow-xl"></div>
+        </div>
+
+        <div id="data-panel">
+                        <div class="data-card">
+                <h2 class="text-lg font-bold mb-2 text-white">Network Architecture</h2>
+                <p class="text-sm text-gray-400 mb-2">Change the number of hidden layers and nodes. (Max 20 nodes per layer)</p>
+                <div class="flex flex-col gap-2">
+                    <label for="hidden-layers-input" class="text-gray-400">Hidden Layers (comma-separated):</label>
+                    <input type="text" id="hidden-layers-input" value="8,5" placeholder="e.g., 8,5" class="rounded px-2 py-1 bg-gray-700 text-gray-200">
+                    <button id="update-arch-btn" class="bg-purple-600 hover:bg-purple-700 text-white font-bold py-1 px-4 rounded transition-colors duration-200">
+                        Update Architecture
+                    </button>
+                </div>
+            </div>
+
+            <div class="data-card">
+                <h2 class="text-lg font-bold mb-2 text-white">Current Data</h2>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Value</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr id="input-row">
+                            <td class="text-gray-400">Input</td>
+                            <td id="input-val" class="scroll-x"></td>
+                        </tr>
+                        <tr id="predicted-output-row">
+                            <td class="text-gray-400">Predicted Output</td>
+                            <td id="predicted-output-val" class="scroll-x"></td>
+                        </tr>
+                        <tr id="target-output-row">
+                            <td class="text-gray-400">Target Output</td>
+                            <td id="target-output-val" class="scroll-x"></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="data-card">
+                <h2 class="text-lg font-bold mb-2 text-white">Selected Node Details</h2>
+                <div id="selected-node-info" class="text-sm">Click a node to view its details.</div>
+            </div>
+        </div>
+    </div>
+    
     <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.4/p5.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.4/addons/p5.sound.min.js"></script>
-
-    <link rel="stylesheet" type="text/css" href="style.css">
-</head>
-<body>
-    <header class="app-header">
-        <h1>3-Bit Encoder Visualization</h1>
-        <p>A live view of a neural network learning to encode data.</p>
-    </header>
-
-    <main class="canvas-container">
-        </main>
-
-    <script src="matrix.js"></script>
+    <script src="Matrix.js"></script>
     <script src="neuralNetwork.js"></script>
     <script src="nnVisualisation.js"></script>
     <script src="sketch.js"></script>
