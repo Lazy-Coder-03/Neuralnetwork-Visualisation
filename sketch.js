@@ -140,18 +140,22 @@ function stopTraining(message) {
 }
 
 function displayTrainingMessage(message, type = 'info') {
-  const messageDiv = document.createElement('div');
-  messageDiv.className = `slide-in rounded-lg p-3 text-sm font-medium ${type === 'success' ? 'bg-green-500/20 text-green-400 border border-green-500/30' :
-    type === 'error' ? 'bg-red-500/20 text-red-400 border border-red-500/30' :
-      'bg-blue-500/20 text-blue-400 border border-blue-500/30'
-    }`;
-  messageDiv.textContent = message;
-  trainingMessageElem.innerHTML = '';
-  trainingMessageElem.appendChild(messageDiv);
+    const messageDiv = document.createElement('div');
+    messageDiv.className = `message-card slide-in text-sm font-medium ${type === 'success' ? 'bg-green-500/20 text-green-400 border border-green-500/30' :
+        type === 'error' ? 'bg-red-500/20 text-red-400 border border-red-500/30' :
+            'bg-blue-500/20 text-blue-400 border border-blue-500/30'
+        }`;
+    messageDiv.textContent = message;
+    trainingMessageElem.appendChild(messageDiv);
 
-  setTimeout(() => {
-    messageDiv.remove();
-  }, 3000);
+    // Hide message after a few seconds
+    setTimeout(() => {
+        messageDiv.classList.add('hidden');
+        // Remove from DOM after transition
+        setTimeout(() => {
+            messageDiv.remove();
+        }, 300);
+    }, 3000);
 }
 
 function setupNetwork(datasetName) {
