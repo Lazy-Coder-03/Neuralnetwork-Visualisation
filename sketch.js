@@ -49,9 +49,18 @@ function setup() {
   datasetSelect.addEventListener('change', handleDatasetChange);
   trainBtn.addEventListener('click', toggleTraining);
   epochsSlider.addEventListener('input', () => {
-    epochsPerFrame = parseInt(epochsSlider.value);
+    let rawValue = parseInt(epochsSlider.value);
+    
+    // Custom logic to handle the values
+    if (rawValue === 1) {
+        epochsPerFrame = 1;
+    } else {
+        // Round to the nearest 10, but ensure it's at least 10
+        epochsPerFrame = Math.max(10, Math.round(rawValue / 10) * 10);
+    }
+    
     epochsVal.textContent = epochsPerFrame;
-  });
+});
   addLayerBtn.addEventListener('click', addHiddenLayerControls);
   updateArchBtn.addEventListener('click', updateArchitecture);
   testDataSelect.addEventListener('change', (event) => {
